@@ -190,19 +190,19 @@ export default function AdminImport() {
         }
 
         // Members
-        const members: { family_id: string; first_name: string; last_name: string; birth_date: null; phone: string | null }[] = []
+        const members: { family_id: string; first_name: string; last_name: string; birth_date: null }[] = []
 
         // Primary member
         if (row.first_name) {
-          members.push({ family_id: familyId, first_name: row.first_name, last_name: familyName, birth_date: null, phone: row.phone || null })
+          members.push({ family_id: familyId, first_name: row.first_name, last_name: familyName, birth_date: null })
         }
         // Spouse
         if (row.spouse_name) {
-          members.push({ family_id: familyId, first_name: row.spouse_name, last_name: familyName, birth_date: null, phone: row.spouse_phone || null })
+          members.push({ family_id: familyId, first_name: row.spouse_name, last_name: familyName, birth_date: null })
         }
         // Children
         for (const child of row.children) {
-          members.push({ family_id: familyId, first_name: child.name, last_name: familyName, birth_date: null, phone: child.phone || null })
+          members.push({ family_id: familyId, first_name: child.name, last_name: familyName, birth_date: null })
         }
 
         if (members.length > 0) {
