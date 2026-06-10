@@ -124,16 +124,39 @@ export default function AdminImport() {
       const membershipType = parseMembershipType(row.membership_type_raw)
 
       try {
-        // Check duplicate
-        const { data: existing } = await supabase
-          .from('families')
-          .select('id')
-          .eq('family_name', familyName)
-          .eq('phone', row.phone || null)
-          .maybeSingle()
+        // Check duplicate by phone (primary) or name if no phone
+        const phone = row.phone || null
+        let existing = null
+        if (phone) {
+          const { data } = await supabase
+            .from('families')
+            .select('id')
+            .eq('phone', phone)
+            .maybeSingle()
+          existing = data
+        } else {
+          const { data } = await supabase
+            .from('families')
+            .select('id')
+            .eq('family_name', familyName)
+            .maybeSingle()
+          existing = data
+        }
 
         if (existing) {
-          res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים — דולג' })
+          // If punch_card — add membership to existing family
+          if (membershipType === 'punch_card') {
+            await supabase.from('memberships').insert({
+              family_id: existing.id,
+              type: 'punch_card',
+              start_date: new Date().toISOString().slice(0, 10),
+              end_date: endDate,
+              active: true,
+            })
+            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה נוספה למשפחה קיימת' })
+          } else {
+            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים — דולג' })
+          }
           continue
         }
 
