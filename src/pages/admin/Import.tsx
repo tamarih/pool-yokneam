@@ -145,16 +145,16 @@ export default function AdminImport() {
         }
 
         if (existing) {
-          // If punch_card — add membership to existing family
+          // If punch_card — add punch card to existing family
           if (membershipType === 'punch_card') {
-            await supabase.from('memberships').insert({
+            await supabase.from('punch_cards').insert({
               family_id: existing.id,
-              type: 'punch_card',
-              start_date: new Date().toISOString().slice(0, 10),
-              end_date: endDate,
-              active: true,
+              purchased_entries: 11,
+              used_entries: 0,
+              expiry_date: endDate,
+              status: 'active',
             })
-            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה נוספה למשפחה קיימת' })
+            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה (11 כניסות) נוספה למשפחה קיימת' })
           } else {
             res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים — דולג' })
           }
@@ -169,7 +169,7 @@ export default function AdminImport() {
             first_name: row.first_name || null,
             phone: row.phone || null,
             address: null,
-            membership_type: membershipType,
+            membership_type: membershipType === 'punch_card' ? 'seasonal' : membershipType,
             end_date: endDate,
             status: 'active',
             notes: row.notes || null,
@@ -181,8 +181,16 @@ export default function AdminImport() {
         if (famErr) throw new Error(famErr.message)
         const familyId = fam.id
 
-        // Create membership
-        if (endDate) {
+        // Create membership or punch card
+        if (membershipType === 'punch_card') {
+          await supabase.from('punch_cards').insert({
+            family_id: familyId,
+            purchased_entries: 11,
+            used_entries: 0,
+            expiry_date: endDate,
+            status: 'active',
+          })
+        } else if (endDate) {
           await supabase.from('memberships').insert({
             family_id: familyId,
             type: membershipType,
