@@ -1,214 +1,145 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { QRScanResult } from '@/types'
-import { membershipTypeLabel, formatDate, formatDateTime, daysUntil } from '@/utils/format'
-import { QrCode, CheckCircle, XCircle, AlertTriangle, Users, Camera, CameraOff } from 'lucide-react'
+import { CheckCircle, XCircle, Phone, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Html5Qrcode } from 'html5-qrcode'
 
-type ScanState = 'idle' | 'scanning' | 'result' | 'confirm'
+type Stage = 'input' | 'result'
+
+interface FamilyResult {
+  family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
+  membership: { id: string; end_date: string | null } | null
+  punch_card: { id: string; remaining_entries: number } | null
+  is_valid: boolean
+  error_message: string | null
+}
 
 export default function GuardScanner() {
   const { user } = useAuth()
-  const [scanState, setScanState] = useState<ScanState>('idle')
-  const [result, setResult] = useState<QRScanResult | null>(null)
+  const [phone, setPhone] = useState('')
+  const [stage, setStage] = useState<Stage>('input')
+  const [result, setResult] = useState<FamilyResult | null>(null)
   const [peopleCount, setPeopleCount] = useState(1)
+  const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
-  const scannerRef = useRef<Html5Qrcode | null>(null)
-  const scannerDivId = 'qr-scanner-div'
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    return () => { stopScanner() }
-  }, [])
+  async function lookup() {
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.length < 9) { setError('מספר טלפון לא תקין'); return }
+    setError(null)
+    setLoading(true)
 
-  async function startScanner() {
-    setCameraError(null)
-    setScanState('scanning')
-    try {
-      const scanner = new Html5Qrcode(scannerDivId)
-      scannerRef.current = scanner
+    const { data, error: rpcError } = await supabase.rpc('get_family_by_phone', { p_phone: cleaned })
+    setLoading(false)
 
-      const devices = await Html5Qrcode.getCameras()
-      if (!devices || devices.length === 0) throw new Error('לא נמצאה מצלמה')
+    if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
+    if (data.error) { setError(data.error); return }
 
-      // prefer back camera
-      const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('אחורית')) ?? devices[devices.length - 1]
-
-      await scanner.start(
-        backCamera.id,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          stopScanner()
-          handleQRResult(decodedText)
-        },
-        () => {}
-      )
-    } catch (err: any) {
-      setCameraError(err.message || 'שגיאה בפתיחת מצלמה')
-      setScanState('idle')
-    }
-  }
-
-  function stopScanner() {
-    if (scannerRef.current) {
-      scannerRef.current.stop().catch(() => {})
-      scannerRef.current = null
-    }
-  }
-
-  async function handleQRResult(token: string) {
-    const { data, error } = await supabase.rpc('get_family_by_qr', { p_token: token })
-    if (error || data?.error) {
-      toast.error(data?.error ?? 'שגיאה בסריקה')
-      setScanState('idle')
-      return
-    }
-
-    const family = data.family
-    const membership = data.membership ?? null
-    const punchCard = data.punch_card ?? null
-    const lastEntry = data.last_entry ?? null
-
-    const hasValidMembership = membership !== null
-    const hasPunchCard = punchCard !== null && punchCard.remaining_entries > 0
-
-    setResult({
-      family,
-      membership,
-      punch_card: punchCard,
-      last_entry: lastEntry,
-      is_valid: family.status === 'active' && (hasValidMembership || hasPunchCard),
-      error_message: family.status !== 'active'
-        ? 'המשפחה אינה פעילה'
-        : (!hasValidMembership && !hasPunchCard)
-          ? 'אין מנוי פעיל או כרטיסייה בתוקף'
-          : null,
-    })
+    setResult(data as FamilyResult)
     setPeopleCount(1)
-    setScanState('result')
+    setStage('result')
   }
 
   async function confirmEntry() {
     if (!result) return
-
-    // check punch card has enough
-    if (result.punch_card && result.membership === null) {
-      if (result.punch_card.remaining_entries < peopleCount) {
-        toast.error(`אין מספיק כניסות. נותרו: ${result.punch_card.remaining_entries}`)
-        return
-      }
+    if (result.punch_card && !result.membership && result.punch_card.remaining_entries < peopleCount) {
+      toast.error(`נותרו רק ${result.punch_card.remaining_entries} כניסות`)
+      return
     }
 
     setConfirming(true)
     const entryType = result.membership ? 'membership' : 'punch_card'
-    const { data, error } = await supabase.rpc('record_entry', {
+    const { data, error: rpcError } = await supabase.rpc('record_entry', {
       p_family_id: result.family.id,
       p_people_count: peopleCount,
       p_entry_type: entryType,
       p_punch_card_id: entryType === 'punch_card' ? result.punch_card?.id ?? null : null,
       p_guard_user_id: user?.id ?? null,
     })
-
     setConfirming(false)
-    if (error || data?.error) {
-      toast.error(data?.error ?? 'שגיאה ברישום כניסה')
-    } else {
-      setScanState('confirm')
-      setTimeout(() => { setScanState('idle'); setResult(null) }, 4000)
-    }
-  }
 
-  function reset() {
-    stopScanner()
-    setScanState('idle')
+    if (rpcError || data?.error) {
+      toast.error(data?.error ?? 'שגיאה ברישום כניסה')
+      return
+    }
+
+    toast.success(`✅ כניסה אושרה — ${result.family.family_name}`)
+    setPhone('')
+    setStage('input')
     setResult(null)
     setPeopleCount(1)
   }
 
-  const days = result ? daysUntil(result.family.end_date) : null
-  const isExpiringSoon = days !== null && days >= 0 && days <= 7
+  function reset() {
+    setPhone('')
+    setStage('input')
+    setResult(null)
+    setError(null)
+    setPeopleCount(1)
+  }
+
+  const familyLabel = result ? [result.family.first_name, result.family.family_name].filter(Boolean).join(' ') : ''
 
   return (
     <div style={{ direction: 'rtl' }}>
 
-      {/* IDLE */}
-      {scanState === 'idle' && (
-        <div style={{ textAlign: 'center', paddingTop: 40 }}>
+      {/* STAGE: input */}
+      {stage === 'input' && (
+        <div style={{ textAlign: 'center', paddingTop: 20 }}>
           <div style={{
-            width: 120, height: 120, borderRadius: '50%',
+            width: 100, height: 100, borderRadius: '50%',
             background: 'linear-gradient(135deg, #dbeafe, #e0f2fe)',
-            margin: '0 auto 24px',
+            margin: '0 auto 20px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 8px 24px rgba(14,165,233,0.2)',
           }}>
-            <QrCode size={56} color="#0284c7" />
+            <Phone size={44} color="#0284c7" />
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 8 }}>סריקת QR</h2>
-          <p style={{ color: '#6b7280', marginBottom: 32 }}>לחץ לסריקת כרטיס משפחה</p>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 6 }}>בדיקת מנוי</h2>
+          <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>הזן מספר טלפון לאימות</p>
 
-          {cameraError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', color: '#dc2626', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
-              {cameraError}
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && lookup()}
+              placeholder="050-0000000"
+              style={{
+                width: '100%', padding: '16px',
+                border: '2px solid #e5e7eb', borderRadius: 14,
+                fontSize: 22, outline: 'none', direction: 'ltr', textAlign: 'center',
+                fontFamily: 'inherit', boxSizing: 'border-box',
+              }}
+              autoFocus
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginBottom: 12 }}>
+              {error}
             </div>
           )}
 
-          <button onClick={startScanner} style={{
-            background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-            color: 'white', border: 'none', borderRadius: 16,
-            padding: '18px 48px', fontSize: 18, fontWeight: 700,
-            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
-            boxShadow: '0 6px 20px rgba(14,165,233,0.4)',
+          <button onClick={lookup} disabled={loading} style={{
+            width: '100%', padding: '16px',
+            background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+            color: 'white', border: 'none', borderRadius: 14,
+            fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
           }}>
-            <Camera size={22} />
-            סרוק QR
+            {loading ? 'מחפש...' : 'חפש מנוי'}
           </button>
         </div>
       )}
 
-      {/* SCANNING */}
-      {scanState === 'scanning' && (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ color: '#6b7280', fontSize: 15 }}>כוון את המצלמה לקוד QR</p>
-          </div>
-          <div id={scannerDivId} style={{ borderRadius: 16, overflow: 'hidden', maxWidth: 400, margin: '0 auto' }} />
-          <button onClick={reset} style={{
-            marginTop: 20, padding: '12px 28px', background: '#f3f4f6', border: 'none',
-            borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#374151',
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-          }}>
-            <CameraOff size={16} />
-            ביטול
-          </button>
-        </div>
-      )}
-
-      {/* RESULT */}
-      {scanState === 'result' && result && (
+      {/* STAGE: result */}
+      {stage === 'result' && result && (
         <div style={{ animation: 'fadeIn 0.3s ease' }}>
-          {/* Duplicate scan warning */}
-          {result.last_entry && (
-            <div style={{
-              background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12,
-              padding: '12px 16px', marginBottom: 16,
-              display: 'flex', gap: 10, alignItems: 'flex-start',
-            }}>
-              <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div>
-                <div style={{ fontWeight: 700, color: '#92400e', fontSize: 14 }}>⚠️ כרטיס נסרק לאחרונה</div>
-                <div style={{ color: '#b45309', fontSize: 13, marginTop: 2 }}>
-                  נסרק ב-{formatDateTime(result.last_entry.created_at)} — {result.last_entry.people_count} אנשים
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Family card */}
           <div style={{
             background: result.is_valid ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : 'linear-gradient(135deg, #fef2f2, #fee2e2)',
-            borderRadius: 20, padding: '20px',
+            borderRadius: 20, padding: 20,
             border: `2px solid ${result.is_valid ? '#86efac' : '#fca5a5'}`,
             marginBottom: 16,
           }}>
@@ -216,53 +147,44 @@ export default function GuardScanner() {
               <div style={{
                 width: 48, height: 48, borderRadius: '50%',
                 background: result.is_valid ? '#16a34a' : '#dc2626',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
                 {result.is_valid ? <CheckCircle size={26} color="white" /> : <XCircle size={26} color="white" />}
               </div>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{result.family.family_name}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{familyLabel}</div>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>מס׳ {result.family.family_number}</div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <InfoRow label="סוג מנוי" value={membershipTypeLabel(result.family.membership_type)} />
-              {result.family.end_date && (
-                <InfoRow
-                  label="תוקף"
-                  value={formatDate(result.family.end_date)}
-                  valueColor={isExpiringSoon ? '#d97706' : undefined}
-                />
-              )}
-              {result.punch_card && (
-                <InfoRow
-                  label="יתרת כניסות"
-                  value={`${result.punch_card.remaining_entries} כניסות`}
-                  valueColor={result.punch_card.remaining_entries <= 3 ? '#d97706' : '#16a34a'}
-                />
-              )}
-            </div>
+            {result.punch_card && !result.membership && (
+              <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: result.punch_card.remaining_entries <= 3 ? '#d97706' : '#15803d', marginBottom: 8 }}>
+                כרטיסייה — נותרו {result.punch_card.remaining_entries} כניסות
+              </div>
+            )}
+            {result.membership && (
+              <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: '#15803d', marginBottom: 8 }}>
+                מנוי בתוקף ✓
+              </div>
+            )}
 
             {!result.is_valid && (
-              <div style={{ marginTop: 12, background: '#dc2626', borderRadius: 10, padding: '10px 14px', color: 'white', fontWeight: 700, textAlign: 'center', fontSize: 15 }}>
+              <div style={{ background: '#dc2626', borderRadius: 10, padding: '10px 14px', color: 'white', fontWeight: 700, textAlign: 'center' }}>
                 ❌ {result.error_message}
               </div>
             )}
           </div>
 
-          {/* People count selector + confirm */}
           {result.is_valid && (
-            <div style={{ background: 'white', borderRadius: 16, padding: '20px', border: '1px solid #e5e7eb' }}>
-              <div style={{ marginBottom: 14, fontWeight: 700, color: '#374151', fontSize: 15 }}>
-                <Users size={16} style={{ display: 'inline', marginLeft: 6 }} />
+            <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '1px solid #e5e7eb', marginBottom: 12 }}>
+              <div style={{ marginBottom: 12, fontWeight: 700, color: '#374151', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Users size={16} />
                 כמה אנשים נכנסים?
               </div>
 
-              {/* Check punch card */}
               {result.punch_card && !result.membership && result.punch_card.remaining_entries < peopleCount && (
                 <div style={{ background: '#fef2f2', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontWeight: 600, fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
-                  ❌ אין מספיק כניסות בכרטיסייה (נותרו {result.punch_card.remaining_entries})
+                  ❌ נותרו רק {result.punch_card.remaining_entries} כניסות
                 </div>
               )}
 
@@ -274,7 +196,7 @@ export default function GuardScanner() {
                     borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
                     color: peopleCount === n ? '#1d4ed8' : '#374151',
                     fontWeight: peopleCount === n ? 800 : 500,
-                    fontSize: 20, cursor: 'pointer', transition: 'all 0.1s',
+                    fontSize: 20, cursor: 'pointer',
                   }}>{n}</button>
                 ))}
               </div>
@@ -295,43 +217,14 @@ export default function GuardScanner() {
           )}
 
           <button onClick={reset} style={{
-            width: '100%', marginTop: 12, padding: '12px',
+            width: '100%', padding: '12px',
             background: '#f3f4f6', border: 'none', borderRadius: 12,
             fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#6b7280',
           }}>
-            סרוק QR אחר
+            חיפוש חדש
           </button>
         </div>
       )}
-
-      {/* CONFIRM SUCCESS */}
-      {scanState === 'confirm' && (
-        <div style={{ textAlign: 'center', paddingTop: 40, animation: 'scaleIn 0.3s ease' }}>
-          <div style={{
-            width: 120, height: 120, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
-            margin: '0 auto 20px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(34,197,94,0.3)',
-          }}>
-            <CheckCircle size={60} color="#16a34a" />
-          </div>
-          <h2 style={{ fontSize: 28, fontWeight: 900, color: '#16a34a', marginBottom: 8 }}>✅ כניסה מאושרת!</h2>
-          <p style={{ fontSize: 18, color: '#374151', fontWeight: 600 }}>
-            {result?.family.family_name} — {peopleCount} {peopleCount === 1 ? 'אדם' : 'אנשים'}
-          </p>
-          <p style={{ color: '#9ca3af', marginTop: 24, fontSize: 13 }}>חוזר אוטומטית בעוד 4 שניות...</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function InfoRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 12px', fontSize: 14 }}>
-      <span style={{ color: '#6b7280' }}>{label}</span>
-      <span style={{ fontWeight: 700, color: valueColor ?? '#111827' }}>{value}</span>
     </div>
   )
 }
