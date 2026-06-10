@@ -119,7 +119,7 @@ export default function AdminImport() {
     const res: RowResult[] = []
 
     for (const row of rows) {
-      const familyName = row.last_name || row.first_name
+      const familyName = row.first_name ? `${row.first_name} ${row.last_name}`.trim() : row.last_name
       const endDate = parseEndDate(row.months)
       const membershipType = parseMembershipType(row.membership_type_raw)
 
