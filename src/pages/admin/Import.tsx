@@ -26,10 +26,9 @@ interface RowResult {
 
 function parseMembershipType(raw: string): string {
   if (!raw) return 'seasonal'
-  const r = raw.toLowerCase()
-  if (r.includes('זוגי') || r.includes('משפחה') || r.includes('couple') || r.includes('family')) return 'seasonal'
+  const r = raw
+  if (r.includes('כרטיסי')) return 'punch_card'
   if (r.includes('שנתי') || r.includes('annual')) return 'annual'
-  if (r.includes('כרטיסייה') || r.includes('punch')) return 'punch_card'
   return 'seasonal'
 }
 
