@@ -24,8 +24,8 @@ export default function AdminFamilies() {
       const q = search.toLowerCase()
       list = list.filter(f =>
         f.family_name.toLowerCase().includes(q) ||
-        f.family_number.toLowerCase().includes(q) ||
-        f.phone.includes(q)
+        (f.family_number ?? '').toLowerCase().includes(q) ||
+        (f.phone ?? '').includes(q)
       )
     }
     if (statusFilter !== 'all') list = list.filter(f => f.status === statusFilter)
