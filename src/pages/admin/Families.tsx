@@ -97,7 +97,7 @@ export default function AdminFamilies() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-                {['מס׳', 'שם משפחה', 'טלפון', 'סוג מנוי', 'תוקף', 'סטטוס', ''].map(h => (
+                {['מס׳', 'שם פרטי', 'שם משפחה', 'טלפון', 'סוג מנוי', 'תוקף', 'סטטוס', ''].map(h => (
                   <th key={h} style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -114,6 +114,7 @@ export default function AdminFamilies() {
                     onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                   >
                     <td style={{ padding: '14px 16px', color: '#6b7280', fontWeight: 500 }}>{f.family_number}</td>
+                    <td style={{ padding: '14px 16px', color: '#374151' }}>{f.first_name ?? ''}</td>
                     <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111827' }}>{f.family_name}</td>
                     <td style={{ padding: '14px 16px', color: '#374151', direction: 'ltr', textAlign: 'right' }}>{f.phone}</td>
                     <td style={{ padding: '14px 16px', color: '#374151' }}>{membershipTypeLabel(f.membership_type)}</td>

@@ -8,10 +8,11 @@ interface Props {
   family?: {
     id: string
     family_name: string
+    first_name?: string | null
     phone: string
-    address: string
+    address: string | null
     membership_type: string
-    start_date: string
+    start_date: string | null
     end_date: string | null
     status: string
     notes: string | null

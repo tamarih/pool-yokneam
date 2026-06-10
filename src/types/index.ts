@@ -20,16 +20,18 @@ export interface Profile {
 
 export interface Family {
   id: string
-  family_number: string
+  family_number: string | null
   family_name: string
+  first_name: string | null
   phone: string
-  address: string
+  address: string | null
   membership_type: MembershipType
-  start_date: string
+  start_date: string | null
   end_date: string | null
   status: FamilyStatus
   qr_token: string
   notes: string | null
+  resident_type: 'local' | 'external' | null
   created_at: string
   updated_at: string
 }
