@@ -13,6 +13,7 @@ import AdminImport from '@/pages/admin/Import'
 import GuardScanner from '@/pages/guard/Scanner'
 import GuardEntries from '@/pages/guard/Entries'
 import MemberCard from '@/pages/member/Card'
+import EntryPage from '@/pages/entry/EntryPage'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles: string[] }) {
@@ -35,6 +36,7 @@ function RootRedirect() {
 export default function App() {
   return (
     <Routes>
+      <Route path="/entry" element={<EntryPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<RootRedirect />} />
 
