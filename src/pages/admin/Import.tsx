@@ -62,6 +62,7 @@ export default function AdminImport() {
   const [results, setResults] = useState<RowResult[]>([])
   const [importing, setImporting] = useState(false)
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload')
+  const [residentType, setResidentType] = useState<'local' | 'external'>('local')
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
@@ -119,7 +120,7 @@ export default function AdminImport() {
     const res: RowResult[] = []
 
     for (const row of rows) {
-      const familyName = row.first_name ? `${row.first_name} ${row.last_name}`.trim() : row.last_name
+      const familyName = row.last_name || row.first_name
       const endDate = parseEndDate(row.months)
       const membershipType = parseMembershipType(row.membership_type_raw)
 
@@ -165,12 +166,14 @@ export default function AdminImport() {
           .from('families')
           .insert({
             family_name: familyName,
+            first_name: row.first_name || null,
             phone: row.phone || null,
             address: null,
             membership_type: membershipType,
             end_date: endDate,
             status: 'active',
             notes: row.notes || null,
+            resident_type: residentType,
           })
           .select('id')
           .single()
@@ -192,17 +195,18 @@ export default function AdminImport() {
         // Members
         const members: { family_id: string; first_name: string; last_name: string; birth_date: null }[] = []
 
+        const lastName = row.last_name || familyName
         // Primary member
         if (row.first_name) {
-          members.push({ family_id: familyId, first_name: row.first_name, last_name: familyName, birth_date: null })
+          members.push({ family_id: familyId, first_name: row.first_name, last_name: lastName, birth_date: null })
         }
         // Spouse
         if (row.spouse_name) {
-          members.push({ family_id: familyId, first_name: row.spouse_name, last_name: familyName, birth_date: null })
+          members.push({ family_id: familyId, first_name: row.spouse_name, last_name: lastName, birth_date: null })
         }
         // Children
         for (const child of row.children) {
-          members.push({ family_id: familyId, first_name: child.name, last_name: familyName, birth_date: null })
+          members.push({ family_id: familyId, first_name: child.name, last_name: lastName, birth_date: null })
         }
 
         if (members.length > 0) {
@@ -235,6 +239,19 @@ export default function AdminImport() {
         <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>
           תומך בפורמט טבלת תושבי יקנעם — שורה אחת למנוי כולל בן/ת זוג וילדים
         </p>
+      </div>
+
+      {/* Resident type selector */}
+      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>סוג תושב:</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+          <input type="radio" name="residentType" value="local" checked={residentType === 'local'} onChange={() => setResidentType('local')} />
+          תושב מושבה יקנעם
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+          <input type="radio" name="residentType" value="external" checked={residentType === 'external'} onChange={() => setResidentType('external')} />
+          תושב חוץ
+        </label>
       </div>
 
       {/* Format info */}
