@@ -5,6 +5,7 @@ declare
   v_family families%rowtype;
   v_membership memberships%rowtype;
   v_punch_card punch_cards%rowtype;
+  v_member_count integer;
   v_today date := current_date;
   v_cleaned text;
 begin
@@ -34,6 +35,9 @@ begin
   order by created_at desc
   limit 1;
 
+  -- count family members
+  select count(*) into v_member_count from public.family_members where family_id = v_family.id;
+
   -- find active punch card
   select * into v_punch_card
   from public.punch_cards
@@ -46,6 +50,7 @@ begin
 
   return json_build_object(
     'family', row_to_json(v_family),
+    'member_count', v_member_count,
     'membership', case when v_membership.id is not null then row_to_json(v_membership) else null end,
     'punch_card', case when v_punch_card.id is not null then row_to_json(v_punch_card) else null end,
     'is_valid', (v_family.status = 'active' and (v_membership.id is not null or (v_punch_card.id is not null and v_punch_card.remaining_entries > 0))),

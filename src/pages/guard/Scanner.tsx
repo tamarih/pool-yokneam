@@ -8,6 +8,7 @@ type Stage = 'input' | 'result'
 
 interface FamilyResult {
   family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
+  member_count: number
   membership: { id: string; end_date: string | null } | null
   punch_card: { id: string; remaining_entries: number } | null
   is_valid: boolean
@@ -155,6 +156,10 @@ export default function GuardScanner() {
                 <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{familyLabel}</div>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>מס׳ {result.family.family_number}</div>
               </div>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>
+              👥 {result.member_count} אנשים על המנוי
             </div>
 
             {result.punch_card && !result.membership && (
