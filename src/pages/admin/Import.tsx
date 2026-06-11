@@ -297,7 +297,18 @@ export default function AdminImport() {
         }
 
         if (members.length > 0) {
-          await supabase.from('family_members').insert(members)
+          // Insert members one by one, skip if same first_name already exists for this family
+          for (const m of members) {
+            const { data: existing } = await supabase
+              .from('family_members')
+              .select('id')
+              .eq('family_id', m.family_id)
+              .eq('first_name', m.first_name)
+              .maybeSingle()
+            if (!existing) {
+              await supabase.from('family_members').insert(m)
+            }
+          }
         }
 
         res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: `נוסף (${members.length} חברים, ${membershipType})` })
