@@ -91,7 +91,7 @@ export default function AdminImport() {
     const iLastName = col('משפחה')
     const iId = col('ת.ז')
     const iPhone = col('נייד מנוי ראשי')
-    const iEmail = col('דוא"ל')
+    const iEmail = col('דוא') // matches דוא"ל regardless of quote character
     const iType = col('סוג מנוי')
     const iSpouseName = col('שם בן')
     const iSpousePhone = col('נייד מנוי משני')
