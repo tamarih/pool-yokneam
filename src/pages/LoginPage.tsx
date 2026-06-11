@@ -37,14 +37,11 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    // Check email exists in families
-    const { data: family } = await supabase
-      .from('families')
-      .select('id')
-      .ilike('email', email.trim())
-      .maybeSingle()
+    // Check email exists in families (via security definer RPC to bypass RLS)
+    const { data: exists } = await supabase
+      .rpc('check_family_email_exists', { p_email: email.trim() })
 
-    if (!family) {
+    if (!exists) {
       setLoading(false)
       setError('המייל לא נמצא במערכת. פנה למשרד הבריכה.')
       return
