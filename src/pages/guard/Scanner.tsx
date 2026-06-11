@@ -279,7 +279,7 @@ export default function GuardScanner() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
                   {result.members.map((mb, i) => {
                     const selected = selectedMembers.includes(i)
-                    const name = `${mb.first_name} ${mb.last_name}`
+                    const name = mb.first_name
                     return (
                       <button key={i} onClick={() => setSelectedMembers(prev =>
                         prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
