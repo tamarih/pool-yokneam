@@ -59,35 +59,65 @@ export default function AdminImport() {
     const ws = wb.Sheets[wb.SheetNames[0]]
     const data = utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' })
 
-    // New format column mapping:
-    // 0: תאריך עדכון, 1: מחיר, 2: סכום, 3: ___,
-    // 4: שם פרטי, 5: משפחה, 6: ת.ז, 7: נייד ראשי, 8: דוא"ל,
-    // 9: סוג מנוי, 10: מס פריטים, 11: פנסיונר, 12: מס פנסיונרים, 13: תשלומים,
-    // 14: שם בן/ת זוג, 15: גיל זוג, 16: נייד זוג,
-    // 17: ילד1 שם, 18: גיל, 19: נייד,
-    // 20: ילד2 שם, 21: גיל, 22: נייד,
-    // 23: ילד3 שם, 24: גיל, 25: נייד,
-    // 26: ילד4 שם, 27: גיל, 28: נייד,
-    // 29: מס נכדים, 30: הערות
+    // Find header row dynamically (look for row containing שם מנוי ראשי)
+    let headerRowIdx = -1
+    let colMap: Record<string, number> = {}
+    for (let i = 0; i < Math.min(5, data.length); i++) {
+      const row = data[i]
+      const rowStr = row.map((c: any) => String(c ?? '')).join('|')
+      if (rowStr.includes('שם מנוי ראשי') || rowStr.includes('נייד מנוי ראשי')) {
+        headerRowIdx = i
+        row.forEach((cell: any, idx: number) => {
+          const key = String(cell ?? '').trim()
+          if (key) colMap[key] = idx
+        })
+        break
+      }
+    }
+    if (headerRowIdx === -1) {
+      toast.error('לא נמצאה שורת כותרות בקובץ')
+      return
+    }
 
-    // Skip header row (row 0)
+    // Helper to get col index by partial header name
+    const col = (partial: string): number => {
+      const found = Object.keys(colMap).find(k => k.includes(partial))
+      return found ? colMap[found] : -1
+    }
+
+    const iFirstName = col('שם מנוי ראשי')
+    const iLastName = col('משפחה')
+    const iId = col('ת.ז')
+    const iPhone = col('נייד מנוי ראשי')
+    const iEmail = col('דוא"ל')
+    const iType = col('סוג מנוי')
+    const iSpouseName = col('שם בן')
+    const iSpousePhone = col('נייד מנוי משני')
+    const iNotes = col('הערות')
+
+    // Children: find columns "שם מנוי ילד 1", "שם מנוי ילד 2" etc.
+    const childCols: { nameIdx: number; phoneIdx: number }[] = []
+    for (let c = 1; c <= 4; c++) {
+      const nameIdx = col(`ילד ${c}`)
+      // phone comes 2 columns after name (name, גיל, נייד)
+      if (nameIdx >= 0) childCols.push({ nameIdx, phoneIdx: nameIdx + 2 })
+    }
+
     const parsed: ParsedFamily[] = []
-    for (let i = 1; i < data.length; i++) {
+    for (let i = headerRowIdx + 1; i < data.length; i++) {
       const r = data[i]
-      const firstName = String(r[4] ?? '').trim()
-      const lastName = String(r[5] ?? '').trim()
+      const firstName = String(r[iFirstName] ?? '').trim()
+      const lastName = String(r[iLastName] ?? '').trim()
       if (!firstName && !lastName) continue
 
       const children: { name: string; age: string; phone: string }[] = []
-      // Children at columns 17-28 (3 cols each × 4 children)
-      for (let c = 0; c < 4; c++) {
-        const base = 17 + c * 3
-        const name = String(r[base] ?? '').trim()
+      for (const { nameIdx, phoneIdx } of childCols) {
+        const name = String(r[nameIdx] ?? '').trim()
         if (name) {
           children.push({
             name,
-            age: String(r[base + 1] ?? '').trim(),
-            phone: String(r[base + 2] ?? '').trim(),
+            age: String(r[nameIdx + 1] ?? '').trim(),
+            phone: String(r[phoneIdx] ?? '').trim(),
           })
         }
       }
@@ -96,15 +126,15 @@ export default function AdminImport() {
         months: '',
         first_name: firstName,
         last_name: lastName,
-        id_number: String(r[6] ?? '').trim(),
-        phone: String(r[7] ?? '').trim(),
-        email: String(r[8] ?? '').trim(),
-        membership_type_raw: String(r[9] ?? '').trim(),
-        spouse_name: String(r[14] ?? '').trim(),
-        spouse_age: String(r[15] ?? '').trim(),
-        spouse_phone: String(r[16] ?? '').trim(),
+        id_number: iId >= 0 ? String(r[iId] ?? '').trim() : '',
+        phone: iPhone >= 0 ? String(r[iPhone] ?? '').trim() : '',
+        email: iEmail >= 0 ? String(r[iEmail] ?? '').trim() : '',
+        membership_type_raw: iType >= 0 ? String(r[iType] ?? '').trim() : '',
+        spouse_name: iSpouseName >= 0 ? String(r[iSpouseName] ?? '').trim() : '',
+        spouse_age: '',
+        spouse_phone: iSpousePhone >= 0 ? String(r[iSpousePhone] ?? '').trim() : '',
         children,
-        notes: String(r[30] ?? '').trim(),
+        notes: iNotes >= 0 ? String(r[iNotes] ?? '').trim() : '',
       })
     }
 
