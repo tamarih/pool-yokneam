@@ -11,7 +11,7 @@ interface FamilyResult {
   member_count: number
   members: { first_name: string; last_name: string }[]
   membership: { id: string; end_date: string | null; type_label: string | null } | null
-  punch_card: { id: string; remaining_entries: number } | null
+  punch_card: { id: string; remaining_entries: number; owner_name: string | null } | null
   last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
   is_valid: boolean
   error_message: string | null
@@ -212,7 +212,9 @@ export default function GuardScanner() {
               return (
                 <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
+                      🎟️ כרטיסייה{result.punch_card!.owner_name ? ` של ${result.punch_card!.owner_name}` : ''}
+                    </span>
                     <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} מתוך {total}</span>
                   </div>
                   {/* progress bar */}
@@ -228,11 +230,12 @@ export default function GuardScanner() {
             })()}
             {result.membership && (
               <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>
-                  מנוי בתוקף ✓
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>מנוי בתוקף ✓</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>של {familyLabel}</div>
                 </div>
                 {result.membership.type_label && (
-                  <div style={{ fontSize: 13, color: '#374151', marginTop: 3 }}>
+                  <div style={{ fontSize: 13, color: '#6b7280', marginTop: 3 }}>
                     {result.membership.type_label}
                   </div>
                 )}

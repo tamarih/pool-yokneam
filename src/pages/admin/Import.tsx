@@ -174,6 +174,7 @@ export default function AdminImport() {
                 expiry_date: endDate,
                 status: 'active',
                 phones: uniquePhones,
+                owner_name: `${row.first_name} ${row.last_name}`.trim() || null,
               })
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה (11 כניסות) נוספה למשפחה קיימת' })
             }
@@ -227,6 +228,7 @@ export default function AdminImport() {
             expiry_date: endDate,
             status: 'active',
             phones: uniquePhones,
+            owner_name: `${row.first_name} ${row.last_name}`.trim() || null,
           })
         } else if (endDate) {
           await supabase.from('memberships').insert({
