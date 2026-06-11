@@ -26,7 +26,7 @@ export default function GuardScanner() {
   const [phone, setPhone] = useState('')
   const [stage, setStage] = useState<Stage>('input')
   const [result, setResult] = useState<FamilyResult | null>(null)
-  const [peopleCount, setPeopleCount] = useState(1)
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +44,7 @@ export default function GuardScanner() {
     if (data.error) { setError(data.error); return }
 
     setResult(data as FamilyResult)
-    setPeopleCount(1)
+    setSelectedMembers([])
     setStage('result')
   }
 
@@ -62,9 +62,12 @@ export default function GuardScanner() {
     else setResult({ ...result, last_entry: null })
   }
 
+  const peopleCount = selectedMembers.length || 1
+
   async function confirmEntry() {
     if (!result) return
-    if (result.punch_card && !result.membership && result.punch_card.remaining_entries < peopleCount) {
+    const count = selectedMembers.length || 1
+    if (result.punch_card && !result.membership && result.punch_card.remaining_entries < count) {
       toast.error(`נותרו רק ${result.punch_card.remaining_entries} כניסות`)
       return
     }
@@ -73,7 +76,7 @@ export default function GuardScanner() {
     const entryType = result.membership ? 'membership' : 'punch_card'
     const { data, error: rpcError } = await supabase.rpc('record_entry', {
       p_family_id: result.family.id,
-      p_people_count: peopleCount,
+      p_people_count: count,
       p_entry_type: entryType,
       p_punch_card_id: entryType === 'punch_card' ? result.punch_card?.id ?? null : null,
       p_guard_user_id: user?.id ?? null,
@@ -89,7 +92,7 @@ export default function GuardScanner() {
     setPhone('')
     setStage('input')
     setResult(null)
-    setPeopleCount(1)
+    setSelectedMembers([])
   }
 
   function reset() {
@@ -97,7 +100,7 @@ export default function GuardScanner() {
     setStage('input')
     setResult(null)
     setError(null)
-    setPeopleCount(1)
+    setSelectedMembers([])
   }
 
   const familyLabel = result ? [result.family.first_name, result.family.family_name].filter(Boolean).join(' ') : ''
@@ -269,33 +272,63 @@ export default function GuardScanner() {
             <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '1px solid #e5e7eb', marginBottom: 12 }}>
               <div style={{ marginBottom: 12, fontWeight: 700, color: '#374151', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Users size={16} />
-                כמה אנשים נכנסים?
+                מי נכנס? (לחץ לסימון)
               </div>
 
-              {(() => {
-                const isPunchCard = !!result.punch_card && !result.membership
-                const maxAllowed = isPunchCard ? result.punch_card!.remaining_entries : 8
-                // when both membership + punch_card exist, always use membership (no limit)
-                const nums = Array.from({ length: maxAllowed }, (_, i) => i + 1)
-                return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
-                    {nums.map(n => (
-                      <button key={n} onClick={() => setPeopleCount(n)} style={{
-                        padding: '14px 8px', border: '2px solid',
-                        borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
-                        borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
-                        color: peopleCount === n ? '#1d4ed8' : '#374151',
-                        fontWeight: peopleCount === n ? 800 : 500,
-                        fontSize: 20, cursor: 'pointer',
-                      }}>{n}</button>
-                    ))}
-                  </div>
-                )
-              })()}
+              {result.members && result.members.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                  {result.members.map((mb, i) => {
+                    const selected = selectedMembers.includes(i)
+                    const name = `${mb.first_name} ${mb.last_name}`
+                    return (
+                      <button key={i} onClick={() => setSelectedMembers(prev =>
+                        prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                      )} style={{
+                        padding: '12px 18px', border: '2px solid',
+                        borderColor: selected ? '#16a34a' : '#e5e7eb',
+                        borderRadius: 12,
+                        background: selected ? '#dcfce7' : 'white',
+                        color: selected ? '#15803d' : '#374151',
+                        fontWeight: selected ? 800 : 500,
+                        fontSize: 15, cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}>
+                        {selected ? '✓ ' : ''}{name}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                // fallback: no members in DB — show number grid
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {[1,2,3,4,5,6,7,8].map(n => (
+                    <button key={n} onClick={() => setSelectedMembers(Array.from({length: n}, (_, i) => i))} style={{
+                      padding: '14px 8px', border: '2px solid',
+                      borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
+                      borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
+                      color: peopleCount === n ? '#1d4ed8' : '#374151',
+                      fontWeight: peopleCount === n ? 800 : 500,
+                      fontSize: 20, cursor: 'pointer',
+                    }}>{n}</button>
+                  ))}
+                </div>
+              )}
+
+              {selectedMembers.length === 0 && result.members && result.members.length > 0 && (
+                <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', marginBottom: 12 }}>
+                  לא נבחר אף אחד — יירשם כניסה של אדם 1
+                </div>
+              )}
+
+              {result.punch_card && !result.membership && result.punch_card.remaining_entries < (selectedMembers.length || 1) && (
+                <div style={{ background: '#fef2f2', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontWeight: 600, fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
+                  ❌ נותרו רק {result.punch_card.remaining_entries} כניסות
+                </div>
+              )}
 
               <button
                 onClick={confirmEntry}
-                disabled={confirming || (!!result.punch_card && !result.membership && result.punch_card.remaining_entries < peopleCount)}
+                disabled={confirming || (!!result.punch_card && !result.membership && result.punch_card.remaining_entries < (selectedMembers.length || 1))}
                 style={{
                   width: '100%', padding: '16px', borderRadius: 14, border: 'none',
                   background: 'linear-gradient(135deg, #16a34a, #22c55e)',
@@ -303,7 +336,10 @@ export default function GuardScanner() {
                   cursor: confirming ? 'not-allowed' : 'pointer',
                   boxShadow: '0 4px 14px rgba(34,197,94,0.35)',
                 }}>
-                {confirming ? 'מאשר...' : `✅ אשר כניסה — ${peopleCount} ${peopleCount === 1 ? 'אדם' : 'אנשים'}`}
+                {confirming ? 'מאשר...' : selectedMembers.length > 0
+                  ? `✅ אשר כניסה — ${result.members?.filter((_, i) => selectedMembers.includes(i)).map(m => m.first_name).join(', ')}`
+                  : '✅ אשר כניסה — 1 אדם'
+                }
               </button>
             </div>
           )}
