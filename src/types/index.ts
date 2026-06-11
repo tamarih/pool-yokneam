@@ -55,6 +55,7 @@ export interface Membership {
   active: boolean
   price: number | null
   notes: string | null
+  phone: string | null
   created_at: string
 }
 
@@ -68,6 +69,7 @@ export interface PunchCard {
   status: PunchCardStatus
   price: number | null
   notes: string | null
+  phone: string | null
   created_at: string
   updated_at: string
 }

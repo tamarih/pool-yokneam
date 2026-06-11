@@ -23,6 +23,7 @@ export default function AdminFamilyDetail() {
   const [tab, setTab] = useState<'members' | 'memberships' | 'punch_cards' | 'entries'>('members')
   const [addPunchEntries, setAddPunchEntries] = useState(0)
   const [addPunchExpiry, setAddPunchExpiry] = useState('')
+  const [addPunchPhone, setAddPunchPhone] = useState('')
 
   useEffect(() => { if (id) load() }, [id])
 
@@ -57,9 +58,22 @@ export default function AdminFamilyDetail() {
       purchased_entries: addPunchEntries,
       used_entries: 0,
       expiry_date: addPunchExpiry || null,
+      phone: addPunchPhone.trim() || null,
     })
     if (error) toast.error('שגיאה: ' + error.message)
-    else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); load() }
+    else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); setAddPunchPhone(''); load() }
+  }
+
+  async function updateMembershipPhone(membershipId: string, phone: string) {
+    const { error } = await supabase.from('memberships').update({ phone: phone.trim() || null }).eq('id', membershipId)
+    if (error) toast.error('שגיאה בעדכון')
+    else { toast.success('הטלפון עודכן'); load() }
+  }
+
+  async function updatePunchCardPhone(pcId: string, phone: string) {
+    const { error } = await supabase.from('punch_cards').update({ phone: phone.trim() || null }).eq('id', pcId)
+    if (error) toast.error('שגיאה בעדכון')
+    else { toast.success('הטלפון עודכן'); load() }
   }
 
   if (loading) return <LoadingSpinner />
@@ -154,11 +168,16 @@ export default function AdminFamilyDetail() {
           {memberships.length === 0 ? <Empty /> : memberships.map(m => {
             const sc2 = statusColor(m.active ? 'active' : 'inactive')
             return (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9fafb' }}>
-                <div>
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9fafb', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px' }}>
                   <div style={{ fontWeight: 600 }}>{membershipTypeLabel(m.type)}</div>
                   <div style={{ fontSize: 13, color: '#6b7280' }}>{formatDate(m.start_date)} — {m.end_date ? formatDate(m.end_date) : 'ללא הגבלה'}</div>
                 </div>
+                <PhoneEditor
+                  value={m.phone}
+                  fallback={family.phone}
+                  onSave={(p) => updateMembershipPhone(m.id, p)}
+                />
                 <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   {m.active ? 'פעיל' : 'לא פעיל'}
                 </span>
@@ -188,6 +207,14 @@ export default function AdminFamilyDetail() {
                   ))}
                 </div>
                 {pc.expiry_date && <div style={{ marginTop: 10, fontSize: 13, color: '#6b7280' }}>תוקף: {formatDate(pc.expiry_date)}</div>}
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>טלפון משויך:</span>
+                  <PhoneEditor
+                    value={pc.phone}
+                    fallback={family.phone}
+                    onSave={(p) => updatePunchCardPhone(pc.id, p)}
+                  />
+                </div>
               </div>
             )
           })}
@@ -205,6 +232,11 @@ export default function AdminFamilyDetail() {
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>תוקף (אופציונלי)</label>
                 <input type="date" value={addPunchExpiry} onChange={e => setAddPunchExpiry(e.target.value)}
                   style={{ padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>טלפון משויך (אופציונלי)</label>
+                <input type="tel" value={addPunchPhone} onChange={e => setAddPunchPhone(e.target.value)} placeholder="050-0000000"
+                  style={{ padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', direction: 'ltr', width: 140 }} />
               </div>
               <button onClick={addPunchCard} style={{ ...btnStyle('#16a34a', '#dcfce7'), alignSelf: 'flex-end' }}>
                 <Plus size={15} /> הוסף
@@ -270,6 +302,41 @@ export default function AdminFamilyDetail() {
 
 function Empty() {
   return <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 14 }}>אין נתונים</div>
+}
+
+function PhoneEditor({ value, fallback, onSave }: { value: string | null; fallback: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [input, setInput] = useState(value ?? '')
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <input
+          autoFocus
+          type="tel"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="050-0000000"
+          style={{ padding: '6px 8px', border: '1.5px solid #1d4ed8', borderRadius: 6, fontSize: 13, outline: 'none', direction: 'ltr', width: 130 }}
+        />
+        <button onClick={() => { onSave(input); setEditing(false) }} style={{ background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>שמור</button>
+        <button onClick={() => { setInput(value ?? ''); setEditing(false) }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, color: '#6b7280' }}>ביטול</button>
+      </div>
+    )
+  }
+  const isAssigned = value && value.trim()
+  return (
+    <button
+      onClick={() => { setInput(value ?? ''); setEditing(true) }}
+      title={isAssigned ? 'לחצי לעריכה' : `לא משויך — נופל ל-${fallback || 'טלפון משפחה ריק'}`}
+      style={{
+        background: isAssigned ? '#dbeafe' : '#fef3c7',
+        color: isAssigned ? '#1d4ed8' : '#92400e',
+        border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
+        fontSize: 13, fontWeight: 600, direction: 'ltr',
+      }}>
+      📞 {isAssigned ? value : 'לא משויך'}
+    </button>
+  )
 }
 
 const cardStyle: React.CSSProperties = {
