@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { QrCode, List, LogOut, Waves } from 'lucide-react'
+import { QrCode, List, LogOut } from 'lucide-react'
 
 export default function GuardLayout() {
   const { profile, signOut } = useAuth()
