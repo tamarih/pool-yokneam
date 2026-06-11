@@ -39,7 +39,7 @@ export default function AdminLayout() {
       }}>
         {/* Logo */}
         <div style={{ padding: '20px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <img src="/new yokneam.png" alt="יקנעם" style={{ flexShrink: 0, height: 40, width: 40, objectFit: 'contain', borderRadius: 8 }} />
+          <img src="/logo2.png" alt="יקנעם" style={{ flexShrink: 0, height: 40, width: 40, objectFit: 'contain', borderRadius: 8 }} />
           {open && <span style={{ color: 'white', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>בריכת יקנעם</span>}
         </div>
 

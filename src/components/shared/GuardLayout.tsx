@@ -24,7 +24,7 @@ export default function GuardLayout() {
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/new yokneam.png" alt="יקנעם" style={{ height: 48, width: 48, objectFit: 'contain', borderRadius: 10 }} />
+          <img src="/logo2.png" alt="יקנעם" style={{ height: 48, width: 48, objectFit: 'contain', borderRadius: 10 }} />
           <div>
             <div style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>בריכת יקנעם</div>
             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>שומר: {profile?.full_name}</div>
