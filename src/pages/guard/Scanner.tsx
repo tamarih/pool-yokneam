@@ -250,7 +250,7 @@ export default function GuardScanner() {
                   type="text"
                   value={nameQuery}
                   onChange={e => searchByName(e.target.value)}
-                  placeholder="לדוגמה: גלמונד"
+                  placeholder="לדוגמה: הופמן"
                   style={{
                     width: '100%', padding: '16px',
                     border: '2px solid #e5e7eb', borderRadius: 14,
