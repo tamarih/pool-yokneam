@@ -197,11 +197,29 @@ export default function GuardScanner() {
               )}
             </div>
 
-            {result.punch_card && !result.membership && (
-              <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: result.punch_card.remaining_entries <= 3 ? '#d97706' : '#15803d', marginBottom: 8 }}>
-                כרטיסייה — נותרו {result.punch_card.remaining_entries} כניסות
-              </div>
-            )}
+            {result.punch_card && !result.membership && (() => {
+              const remaining = result.punch_card.remaining_entries
+              const total = 11
+              const used = total - remaining
+              const pct = (remaining / total) * 100
+              const color = remaining <= 3 ? '#dc2626' : remaining <= 5 ? '#d97706' : '#15803d'
+              return (
+                <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} מתוך {total}</span>
+                  </div>
+                  {/* progress bar */}
+                  <div style={{ background: '#e5e7eb', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.3s' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
+                    <span>נוצלו: {used}</span>
+                    <span>נותרו: {remaining}</span>
+                  </div>
+                </div>
+              )
+            })()}
             {result.membership && (
               <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: '#15803d', marginBottom: 8 }}>
                 מנוי בתוקף ✓
@@ -244,24 +262,25 @@ export default function GuardScanner() {
                 כמה אנשים נכנסים?
               </div>
 
-              {result.punch_card && !result.membership && result.punch_card.remaining_entries < peopleCount && (
-                <div style={{ background: '#fef2f2', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontWeight: 600, fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
-                  ❌ נותרו רק {result.punch_card.remaining_entries} כניסות
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
-                {[1,2,3,4,5,6,7,8].map(n => (
-                  <button key={n} onClick={() => setPeopleCount(n)} style={{
-                    padding: '14px 8px', border: '2px solid',
-                    borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
-                    borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
-                    color: peopleCount === n ? '#1d4ed8' : '#374151',
-                    fontWeight: peopleCount === n ? 800 : 500,
-                    fontSize: 20, cursor: 'pointer',
-                  }}>{n}</button>
-                ))}
-              </div>
+              {(() => {
+                const isPunchCard = !!result.punch_card && !result.membership
+                const maxAllowed = isPunchCard ? result.punch_card!.remaining_entries : 8
+                const nums = Array.from({ length: maxAllowed }, (_, i) => i + 1)
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+                    {nums.map(n => (
+                      <button key={n} onClick={() => setPeopleCount(n)} style={{
+                        padding: '14px 8px', border: '2px solid',
+                        borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
+                        borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
+                        color: peopleCount === n ? '#1d4ed8' : '#374151',
+                        fontWeight: peopleCount === n ? 800 : 500,
+                        fontSize: 20, cursor: 'pointer',
+                      }}>{n}</button>
+                    ))}
+                  </div>
+                )
+              })()}
 
               <button
                 onClick={confirmEntry}
