@@ -39,9 +39,7 @@ export default function AdminLayout() {
       }}>
         {/* Logo */}
         <div style={{ padding: '20px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ minWidth: 32, height: 32, background: '#0ea5e9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Waves size={18} color="white" />
-          </div>
+          <img src="/logo.png" alt="יקנעם" style={{ minWidth: 32, height: 32, width: 'auto', filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
           {open && <span style={{ color: 'white', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>בריכת יקנעם</span>}
         </div>
 
