@@ -79,10 +79,12 @@ export default function AdminImport() {
       return
     }
 
-    // Helper to get col index by partial header name
+    // Helper to get col index by partial header name (normalize Hebrew text)
+    const normalize = (s: string) => s.replace(/[^א-ת -~]/g, '').replace(/\s+/g, ' ').trim()
     const col = (partial: string): number => {
-      const found = Object.keys(colMap).find(k => k.includes(partial))
-      return found ? colMap[found] : -1
+      const normPartial = normalize(partial)
+      const found = Object.keys(colMap).find(k => normalize(k).includes(normPartial))
+      return found !== undefined ? colMap[found] : -1
     }
 
     const iFirstName = col('שם מנוי ראשי')
