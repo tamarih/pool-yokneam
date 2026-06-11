@@ -245,6 +245,7 @@ export default function AdminImport() {
             family_name: familyName,
             first_name: row.first_name || null,
             phone: row.phone || null,
+            email: row.email || null,
             address: null,
             membership_type: membershipType === 'punch_card' ? 'seasonal' : membershipType,
             end_date: endDate,
