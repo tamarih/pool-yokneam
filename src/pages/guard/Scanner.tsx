@@ -27,6 +27,8 @@ export default function GuardScanner() {
   const [stage, setStage] = useState<Stage>('input')
   const [result, setResult] = useState<FamilyResult | null>(null)
   const [selectedMembers, setSelectedMembers] = useState<number[]>([])
+  const [punchCount, setPunchCount] = useState(1)
+  const [confirmingPunch, setConfirmingPunch] = useState(false)
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +47,7 @@ export default function GuardScanner() {
 
     setResult(data as FamilyResult)
     setSelectedMembers([])
+    setPunchCount(1)
     setStage('result')
   }
 
@@ -95,12 +98,36 @@ export default function GuardScanner() {
     setSelectedMembers([])
   }
 
+  async function confirmPunch() {
+    if (!result?.punch_card) return
+    setConfirmingPunch(true)
+    const { data, error: rpcError } = await supabase.rpc('record_entry', {
+      p_family_id: result.family.id,
+      p_people_count: punchCount,
+      p_entry_type: 'punch_card',
+      p_punch_card_id: result.punch_card.id,
+      p_guard_user_id: user?.id ?? null,
+    })
+    setConfirmingPunch(false)
+    if (rpcError || data?.error) {
+      toast.error(data?.error ?? 'שגיאה בניקוב')
+      return
+    }
+    toast.success(`🎟️ נוקבו ${punchCount} כניסות`)
+    setPhone('')
+    setStage('input')
+    setResult(null)
+    setSelectedMembers([])
+    setPunchCount(1)
+  }
+
   function reset() {
     setPhone('')
     setStage('input')
     setResult(null)
     setError(null)
     setSelectedMembers([])
+    setPunchCount(1)
   }
 
   const familyLabel = result ? [result.family.first_name, result.family.family_name].filter(Boolean).join(' ') : ''
@@ -252,6 +279,35 @@ export default function GuardScanner() {
                   background: '#f59e0b', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer',
                 }}>
                 🗑️ בטל את הכניסה הקודמת
+              </button>
+            </div>
+          )}
+
+          {/* Punch card section — separate from membership */}
+          {result.is_valid && result.punch_card && result.membership && (
+            <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '2px solid #fcd34d', marginBottom: 12 }}>
+              <div style={{ marginBottom: 12, fontWeight: 700, color: '#92400e', fontSize: 15 }}>
+                🎟️ ניקוב כרטיסייה — נותרו {result.punch_card.remaining_entries}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <button onClick={() => setPunchCount(p => Math.max(1, p - 1))} style={{
+                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
+                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
+                }}>−</button>
+                <span style={{ fontSize: 24, fontWeight: 800, minWidth: 40, textAlign: 'center' }}>{punchCount}</span>
+                <button onClick={() => setPunchCount(p => Math.min(result.punch_card!.remaining_entries, p + 1))} style={{
+                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
+                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
+                }}>+</button>
+                <span style={{ fontSize: 14, color: '#6b7280' }}>ניקובים</span>
+              </div>
+              <button onClick={confirmPunch} disabled={confirmingPunch} style={{
+                width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
+              }}>
+                {confirmingPunch ? 'מנקב...' : `🎟️ נקב ${punchCount} כניסות`}
               </button>
             </div>
           )}
