@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  LayoutDashboard, Users, DoorOpen, BarChart3, LogOut, Menu, X, Waves, Upload
+  LayoutDashboard, Users, DoorOpen, BarChart3, LogOut, Menu, X, Upload
 } from 'lucide-react'
 
 const navItems = [
