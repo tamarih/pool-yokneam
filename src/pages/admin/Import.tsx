@@ -142,14 +142,20 @@ export default function AdminImport() {
             .maybeSingle()
           existing = data
         }
-        // If not found by phone, try last name (catches punch card rows for existing families)
+        // If not found by phone, try last name + first name combo
         if (!existing && familyName) {
-          const { data } = await supabase
+          // try exact last name match first
+          const { data: byLastName } = await supabase
             .from('families')
-            .select('id')
+            .select('id, first_name')
             .eq('family_name', familyName)
-            .maybeSingle()
-          existing = data
+          if (byLastName && byLastName.length === 1) {
+            existing = byLastName[0]
+          } else if (byLastName && byLastName.length > 1) {
+            // multiple families with same last name — match by first name too
+            const match = byLastName.find(f => f.first_name === row.first_name)
+            existing = match ?? null
+          }
         }
 
         if (existing) {

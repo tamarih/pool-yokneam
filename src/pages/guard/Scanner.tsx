@@ -205,24 +205,11 @@ export default function GuardScanner() {
 
             {result.punch_card && (() => {
               const remaining = result.punch_card.remaining_entries
-              const total = 11
-              const used = total - remaining
-              const pct = (remaining / total) * 100
               const color = remaining <= 3 ? '#dc2626' : remaining <= 5 ? '#d97706' : '#15803d'
               return (
-                <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} מתוך {total}</span>
-                  </div>
-                  {/* progress bar */}
-                  <div style={{ background: '#e5e7eb', borderRadius: 99, height: 10, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.3s' }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
-                    <span>נוצלו: {used}</span>
-                    <span>נותרו: {remaining}</span>
-                  </div>
+                <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} ניקובים</span>
                 </div>
               )
             })()}
@@ -278,7 +265,9 @@ export default function GuardScanner() {
 
               {result.members && result.members.length > 0 ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
-                  {result.members.map((mb, i) => {
+                  {result.members.filter((mb, i, arr) =>
+                    arr.findIndex(m => m.first_name === mb.first_name) === i
+                  ).map((mb, i) => {
                     const selected = selectedMembers.includes(i)
                     const name = mb.first_name
                     return (
