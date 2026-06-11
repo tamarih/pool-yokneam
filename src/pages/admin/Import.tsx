@@ -413,7 +413,7 @@ export default function AdminImport() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f9fafb' }}>
-                    {['שם פרטי', 'שם משפחה', 'טלפון', 'סוג מנוי', 'תוקף', 'בן/ת זוג', 'ילדים'].map(h => (
+                    {['שם פרטי', 'שם משפחה', 'טלפון', 'מייל', 'סוג מנוי', 'תוקף', 'בן/ת זוג', 'ילדים'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -424,6 +424,7 @@ export default function AdminImport() {
                       <td style={{ padding: '9px 14px', fontWeight: 600 }}>{r.first_name}</td>
                       <td style={{ padding: '9px 14px' }}>{r.last_name}</td>
                       <td style={{ padding: '9px 14px', color: '#6b7280' }}>{r.phone}</td>
+                      <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 11 }}>{r.email}</td>
                       <td style={{ padding: '9px 14px' }}>
                         <span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>
                           {r.membership_type_raw}
