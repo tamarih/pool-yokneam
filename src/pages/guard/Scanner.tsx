@@ -11,8 +11,13 @@ interface FamilyResult {
   member_count: number
   membership: { id: string; end_date: string | null } | null
   punch_card: { id: string; remaining_entries: number } | null
+  last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
   is_valid: boolean
   error_message: string | null
+}
+
+function minutesAgo(iso: string) {
+  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
 }
 
 export default function GuardScanner() {
@@ -40,6 +45,20 @@ export default function GuardScanner() {
     setResult(data as FamilyResult)
     setPeopleCount(1)
     setStage('result')
+  }
+
+  async function cancelPreviousEntry() {
+    if (!result?.last_entry) return
+    const { data, error } = await supabase.rpc('cancel_entry', { p_entry_id: result.last_entry.id })
+    if (error || data?.error) {
+      toast.error(data?.error ?? 'שגיאה בביטול הכניסה הקודמת')
+      return
+    }
+    toast.success('הכניסה הקודמת בוטלה')
+    // refresh lookup to update punch_card balance + clear last_entry
+    const { data: refreshed } = await supabase.rpc('get_family_by_phone', { p_phone: phone.replace(/\D/g, '') })
+    if (refreshed && !refreshed.error) setResult(refreshed as FamilyResult)
+    else setResult({ ...result, last_entry: null })
   }
 
   async function confirmEntry() {
@@ -179,6 +198,28 @@ export default function GuardScanner() {
               </div>
             )}
           </div>
+
+          {result.is_valid && result.last_entry && (
+            <div style={{
+              background: '#fffbeb', border: '2px solid #fcd34d', borderRadius: 14,
+              padding: 16, marginBottom: 12,
+            }}>
+              <div style={{ fontWeight: 800, color: '#92400e', fontSize: 15, marginBottom: 8 }}>
+                ⚠️ המשפחה כבר נכנסה לפני {minutesAgo(result.last_entry.created_at)} דקות
+              </div>
+              <div style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
+                ({result.last_entry.people_count} {result.last_entry.people_count === 1 ? 'אדם' : 'אנשים'}). אם הייתה טעות — אפשר לבטל ולרשום מחדש.
+              </div>
+              <button
+                onClick={cancelPreviousEntry}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                  background: '#f59e0b', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                }}>
+                🗑️ בטל את הכניסה הקודמת
+              </button>
+            </div>
+          )}
 
           {result.is_valid && (
             <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '1px solid #e5e7eb', marginBottom: 12 }}>

@@ -1,18 +1,35 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DashboardStats } from '@/types'
-import { Users, CreditCard, Ticket, DoorOpen, TrendingUp, Calendar, PersonStanding } from 'lucide-react'
+import { Users, CreditCard, Ticket, DoorOpen, TrendingUp, Calendar, PersonStanding, X } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import { formatTime } from '@/utils/format'
 
-function StatCard({ icon: Icon, label, value, color, bg }: {
-  icon: React.ElementType; label: string; value: number | string; color: string; bg: string
+type EntryRange = 'inside' | 'today' | 'week' | 'month'
+
+interface EntryRow {
+  id: string
+  people_count: number
+  entry_time: string
+  entry_date: string
+  created_at: string
+  family: { family_name: string; first_name: string | null; family_number: string | null } | null
+}
+
+function StatCard({ icon: Icon, label, value, color, bg, onClick }: {
+  icon: React.ElementType; label: string; value: number | string; color: string; bg: string; onClick?: () => void
 }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       background: 'white', borderRadius: 16, padding: '20px 24px',
       boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f3f4f6',
       display: 'flex', alignItems: 'center', gap: 16, animation: 'fadeIn 0.3s ease',
-    }}>
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'transform 0.15s, box-shadow 0.15s',
+    }}
+    onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)' } }}
+    onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)' } }}
+    >
       <div style={{ width: 52, height: 52, borderRadius: 14, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={24} color={color} />
       </div>
@@ -24,9 +41,118 @@ function StatCard({ icon: Icon, label, value, color, bg }: {
   )
 }
 
+function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => void }) {
+  const [rows, setRows] = useState<EntryRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const now = new Date()
+      let query = supabase
+        .from('entries')
+        .select('id, people_count, entry_time, entry_date, created_at, family:families(family_name, first_name, family_number)')
+        .eq('status', 'valid')
+        .order('created_at', { ascending: false })
+
+      if (range === 'inside') {
+        const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()
+        query = query.gte('created_at', twoHoursAgo)
+      } else if (range === 'today') {
+        query = query.eq('entry_date', now.toISOString().slice(0, 10))
+      } else if (range === 'week') {
+        const ws = new Date(now); ws.setDate(ws.getDate() - ws.getDay())
+        query = query.gte('entry_date', ws.toISOString().slice(0, 10))
+      } else if (range === 'month') {
+        const ms = new Date(now.getFullYear(), now.getMonth(), 1)
+        query = query.gte('entry_date', ms.toISOString().slice(0, 10))
+      }
+
+      const { data } = await query
+      setRows((data ?? []) as any)
+      setLoading(false)
+    }
+    load()
+  }, [range])
+
+  const titles: Record<EntryRange, string> = {
+    inside: 'בבריכה עכשיו (≈2 שעות אחרונות)',
+    today: 'כניסות היום',
+    week: 'כניסות השבוע',
+    month: 'כניסות החודש',
+  }
+
+  const totalPeople = rows.reduce((s, r) => s + r.people_count, 0)
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      padding: 20, direction: 'rtl',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'white', borderRadius: 16, width: '100%', maxWidth: 720,
+        maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '18px 22px', borderBottom: '1px solid #f3f4f6',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0 }}>{titles[range]}</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0 0' }}>
+              {rows.length} רשומות · {totalPeople} אנשים
+            </p>
+          </div>
+          <button onClick={onClose} style={{
+            background: '#f3f4f6', border: 'none', borderRadius: 10,
+            width: 36, height: 36, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={18} color="#6b7280" />
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center' }}><LoadingSpinner /></div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>אין כניסות בטווח זה</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#f9fafb' }}>
+                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  {['תאריך', 'שעה', 'משפחה', 'מס׳', 'אנשים'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: '#374151', fontSize: 13 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => {
+                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ') || '—'
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                      <td style={{ padding: '10px 16px', color: '#6b7280', fontSize: 13 }}>{r.entry_date}</td>
+                      <td style={{ padding: '10px 16px', color: '#374151' }}>{formatTime(r.entry_time)}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 600 }}>{label}</td>
+                      <td style={{ padding: '10px 16px', color: '#9ca3af', fontSize: 13 }}>{r.family?.family_number ?? '—'}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 700, color: '#1d4ed8' }}>{r.people_count}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [modalRange, setModalRange] = useState<EntryRange | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -41,14 +167,14 @@ export default function AdminDashboard() {
 
   if (loading) return <LoadingSpinner />
 
-  const cards = [
+  const cards: Array<{ icon: React.ElementType; label: string; value: number; color: string; bg: string; range?: EntryRange }> = [
     { icon: Users, label: 'משפחות פעילות', value: stats?.active_families ?? 0, color: '#1d4ed8', bg: '#dbeafe' },
     { icon: CreditCard, label: 'מנויים פעילים', value: stats?.active_memberships ?? 0, color: '#0284c7', bg: '#e0f2fe' },
     { icon: Ticket, label: 'כרטיסיות פעילות', value: stats?.active_punch_cards ?? 0, color: '#7c3aed', bg: '#ede9fe' },
-    { icon: DoorOpen, label: 'כניסות היום', value: stats?.entries_today ?? 0, color: '#16a34a', bg: '#dcfce7' },
-    { icon: TrendingUp, label: 'כניסות השבוע', value: stats?.entries_week ?? 0, color: '#0369a1', bg: '#e0f2fe' },
-    { icon: Calendar, label: 'כניסות החודש', value: stats?.entries_month ?? 0, color: '#9333ea', bg: '#f3e8ff' },
-    { icon: PersonStanding, label: 'בבריכה עכשיו (≈2 שעות)', value: stats?.people_inside ?? 0, color: '#059669', bg: '#d1fae5' },
+    { icon: DoorOpen, label: 'כניסות היום', value: stats?.entries_today ?? 0, color: '#16a34a', bg: '#dcfce7', range: 'today' },
+    { icon: TrendingUp, label: 'כניסות השבוע', value: stats?.entries_week ?? 0, color: '#0369a1', bg: '#e0f2fe', range: 'week' },
+    { icon: Calendar, label: 'כניסות החודש', value: stats?.entries_month ?? 0, color: '#9333ea', bg: '#f3e8ff', range: 'month' },
+    { icon: PersonStanding, label: 'בבריכה עכשיו (≈2 שעות)', value: stats?.people_inside ?? 0, color: '#059669', bg: '#d1fae5', range: 'inside' },
   ]
 
   return (
@@ -63,24 +189,35 @@ export default function AdminDashboard() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
         gap: 16,
       }}>
-        {cards.map(c => <StatCard key={c.label} {...c} />)}
+        {cards.map(c => (
+          <StatCard
+            key={c.label}
+            icon={c.icon}
+            label={c.label}
+            value={c.value}
+            color={c.color}
+            bg={c.bg}
+            onClick={c.range ? () => setModalRange(c.range!) : undefined}
+          />
+        ))}
       </div>
 
-      {/* People inside highlight */}
       {(stats?.people_inside ?? 0) > 0 && (
-        <div style={{
+        <div onClick={() => setModalRange('inside')} style={{
           marginTop: 24, background: 'linear-gradient(135deg, #0ea5e9, #1d4ed8)',
           borderRadius: 16, padding: '20px 28px', color: 'white',
-          display: 'flex', alignItems: 'center', gap: 16,
+          display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
           boxShadow: '0 4px 20px rgba(14,165,233,0.3)',
         }}>
           <div style={{ fontSize: 48, fontWeight: 900 }}>{stats?.people_inside}</div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>אנשים בבריכה כרגע</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>על פי כניסות ב-2 השעות האחרונות</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>על פי כניסות ב-2 השעות האחרונות · לחצי לרשימה</div>
           </div>
         </div>
       )}
+
+      {modalRange && <EntriesModal range={modalRange} onClose={() => setModalRange(null)} />}
     </div>
   )
 }

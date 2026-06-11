@@ -26,9 +26,9 @@ export default function AdminEntries() {
   }
 
   async function cancelEntry(id: string) {
-    if (!confirm('לבטל כניסה זו?')) return
-    const { error } = await supabase.from('entries').update({ status: 'cancelled' }).eq('id', id)
-    if (error) toast.error('שגיאה בביטול')
+    if (!confirm('לבטל כניסה זו? (אם היא הייתה מכרטיסייה — הכניסות יוחזרו)')) return
+    const { data, error } = await supabase.rpc('cancel_entry', { p_entry_id: id })
+    if (error || data?.error) toast.error(data?.error ?? 'שגיאה בביטול')
     else { toast.success('הכניסה בוטלה'); load() }
   }
 

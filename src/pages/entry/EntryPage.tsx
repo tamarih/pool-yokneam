@@ -14,8 +14,13 @@ interface FamilyResult {
   }
   membership: { id: string; end_date: string | null } | null
   punch_card: { id: string; remaining_entries: number } | null
+  last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
   is_valid: boolean
   error_message: string | null
+}
+
+function minutesAgo(iso: string) {
+  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
 }
 
 export default function EntryPage() {
@@ -46,6 +51,18 @@ export default function EntryPage() {
 
     setResult(data as FamilyResult)
     setStage('result')
+  }
+
+  async function cancelPreviousEntry() {
+    if (!result?.last_entry) return
+    const { data, error: rpcError } = await supabase.rpc('cancel_entry', { p_entry_id: result.last_entry.id })
+    if (rpcError || data?.error) {
+      setError(data?.error ?? 'שגיאה בביטול הכניסה הקודמת')
+      return
+    }
+    const { data: refreshed } = await supabase.rpc('get_family_by_phone', { p_phone: phone.replace(/\D/g, '') })
+    if (refreshed && !refreshed.error) setResult(refreshed as FamilyResult)
+    else setResult({ ...result, last_entry: null })
   }
 
   async function confirmEntry() {
@@ -177,6 +194,25 @@ export default function EntryPage() {
 
               {result.is_valid ? (
                 <>
+                  {result.last_entry && (
+                    <div style={{
+                      background: '#fffbeb', border: '2px solid #fcd34d', borderRadius: 12,
+                      padding: 14, marginBottom: 16, textAlign: 'right',
+                    }}>
+                      <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14, marginBottom: 6 }}>
+                        ⚠️ כבר נכנסת לפני {minutesAgo(result.last_entry.created_at)} דקות
+                      </div>
+                      <div style={{ fontSize: 12, color: '#78350f', marginBottom: 10 }}>
+                        ({result.last_entry.people_count} {result.last_entry.people_count === 1 ? 'אדם' : 'אנשים'}). אם זו הייתה טעות — לחץ לביטול ורישום חדש.
+                      </div>
+                      <button onClick={cancelPreviousEntry} style={{
+                        width: '100%', padding: '10px', borderRadius: 10, border: 'none',
+                        background: '#f59e0b', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                      }}>
+                        🗑️ בטל את הכניסה הקודמת
+                      </button>
+                    </div>
+                  )}
                   {result.punch_card && !result.membership && (
                     <div style={{
                       background: 'rgba(255,255,255,0.8)', borderRadius: 12, padding: '12px 16px',
