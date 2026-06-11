@@ -345,12 +345,26 @@ export default function GuardScanner() {
 
             {result.punch_card && (() => {
               const remaining = result.punch_card.remaining_entries
-              const color = remaining <= 3 ? '#dc2626' : remaining <= 5 ? '#d97706' : '#15803d'
+              const color = remaining <= 2 ? '#dc2626' : remaining <= 5 ? '#d97706' : '#15803d'
               return (
-                <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} ניקובים</span>
-                </div>
+                <>
+                  <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} ניקובים</span>
+                  </div>
+                  {remaining <= 2 && (
+                    <div style={{
+                      background: '#fef2f2', border: '2px solid #fca5a5', borderRadius: 12,
+                      padding: '12px 14px', marginBottom: 8,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span style={{ fontSize: 20 }}>⚠️</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#dc2626' }}>
+                        {remaining === 0 ? 'הכרטיסייה נגמרה! יש לרכוש כרטיסייה חדשה' : `נשארו רק ${remaining} ניקובים — כדאי לחדש כרטיסייה`}
+                      </span>
+                    </div>
+                  )}
+                </>
               )
             })()}
             {result.membership && (
