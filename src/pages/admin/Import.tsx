@@ -26,35 +26,22 @@ interface RowResult {
 
 function parseMembershipType(raw: string): string {
   if (!raw) return 'seasonal'
-  const r = raw
-  if (r.includes('כרטיסי')) return 'punch_card'
-  if (r.includes('שנתי') || r.includes('annual')) return 'annual'
+  if (raw.includes('כרטיסי') || raw.includes('כרטיסייה')) return 'punch_card'
+  if (raw.includes('שנתי') || raw.includes('annual')) return 'annual'
   return 'seasonal'
 }
 
-function parseEndDate(monthsStr: string): string | null {
-  if (!monthsStr) return null
-  // "יוני 26- אוקטובר 26" → take last month
-  const months: Record<string, string> = {
-    'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
-    'מאי': '05', 'יוני': '06', 'יולי': '07', 'אוגוסט': '08',
-    'ספטמבר': '09', 'אוקטובר': '10', 'נובמבר': '11', 'דצמבר': '12',
-  }
-  // find last month-year pair
-  const parts = monthsStr.split('-')
-  const last = parts[parts.length - 1].trim()
-  for (const [heb, num] of Object.entries(months)) {
-    if (last.includes(heb)) {
-      const yearMatch = last.match(/\d{2,4}/)
-      if (yearMatch) {
-        const yr = yearMatch[0].length === 2 ? '20' + yearMatch[0] : yearMatch[0]
-        // last day of that month
-        const lastDay = new Date(+yr, +num, 0).getDate()
-        return `${yr}-${num}-${String(lastDay).padStart(2, '0')}`
-      }
-    }
-  }
-  return null
+function parsePunchCardEntries(raw: string): number {
+  // e.g. "כרטיסייה 11 כניסות - ₪500" → 11
+  const match = raw.match(/(\d+)\s*כניסות/)
+  return match ? parseInt(match[1]) : 11
+}
+
+function seasonEndDate(): string {
+  // Default: October 31 of current or next year
+  const now = new Date()
+  const year = now.getMonth() >= 9 ? now.getFullYear() + 1 : now.getFullYear()
+  return `${year}-10-31`
 }
 
 export default function AdminImport() {
@@ -72,18 +59,29 @@ export default function AdminImport() {
     const ws = wb.Sheets[wb.SheetNames[0]]
     const data = utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' })
 
+    // New format column mapping:
+    // 0: תאריך עדכון, 1: מחיר, 2: סכום, 3: ___,
+    // 4: שם פרטי, 5: משפחה, 6: ת.ז, 7: נייד ראשי, 8: דוא"ל,
+    // 9: סוג מנוי, 10: מס פריטים, 11: פנסיונר, 12: מס פנסיונרים, 13: תשלומים,
+    // 14: שם בן/ת זוג, 15: גיל זוג, 16: נייד זוג,
+    // 17: ילד1 שם, 18: גיל, 19: נייד,
+    // 20: ילד2 שם, 21: גיל, 22: נייד,
+    // 23: ילד3 שם, 24: גיל, 25: נייד,
+    // 26: ילד4 שם, 27: גיל, 28: נייד,
+    // 29: מס נכדים, 30: הערות
+
     // Skip header row (row 0)
     const parsed: ParsedFamily[] = []
     for (let i = 1; i < data.length; i++) {
       const r = data[i]
-      const firstName = String(r[1] ?? '').trim()
-      const lastName = String(r[2] ?? '').trim()
+      const firstName = String(r[4] ?? '').trim()
+      const lastName = String(r[5] ?? '').trim()
       if (!firstName && !lastName) continue
 
       const children: { name: string; age: string; phone: string }[] = []
-      // Children at columns 10-21 (3 cols each: name, age, phone × 4 children)
+      // Children at columns 17-28 (3 cols each × 4 children)
       for (let c = 0; c < 4; c++) {
-        const base = 10 + c * 3
+        const base = 17 + c * 3
         const name = String(r[base] ?? '').trim()
         if (name) {
           children.push({
@@ -95,18 +93,18 @@ export default function AdminImport() {
       }
 
       parsed.push({
-        months: String(r[0] ?? '').trim(),
+        months: '',
         first_name: firstName,
         last_name: lastName,
-        id_number: String(r[3] ?? '').trim(),
-        phone: String(r[4] ?? '').trim(),
-        email: String(r[5] ?? '').trim(),
-        membership_type_raw: String(r[6] ?? '').trim(),
-        spouse_name: String(r[7] ?? '').trim(),
-        spouse_age: String(r[8] ?? '').trim(),
-        spouse_phone: String(r[9] ?? '').trim(),
+        id_number: String(r[6] ?? '').trim(),
+        phone: String(r[7] ?? '').trim(),
+        email: String(r[8] ?? '').trim(),
+        membership_type_raw: String(r[9] ?? '').trim(),
+        spouse_name: String(r[14] ?? '').trim(),
+        spouse_age: String(r[15] ?? '').trim(),
+        spouse_phone: String(r[16] ?? '').trim(),
         children,
-        notes: String(r[23] ?? '').trim(),
+        notes: String(r[30] ?? '').trim(),
       })
     }
 
@@ -121,8 +119,9 @@ export default function AdminImport() {
 
     for (const row of rows) {
       const familyName = row.last_name || row.first_name
-      const endDate = parseEndDate(row.months)
+      const endDate = seasonEndDate()
       const membershipType = parseMembershipType(row.membership_type_raw)
+      const punchEntries = parsePunchCardEntries(row.membership_type_raw)
 
       // collect all phones from the row (primary + spouse + children)
       const allPhones = [row.phone, row.spouse_phone, ...row.children.map(c => c.phone)]
@@ -177,7 +176,7 @@ export default function AdminImport() {
             } else {
               await supabase.from('punch_cards').insert({
                 family_id: existing.id,
-                purchased_entries: 11,
+                purchased_entries: punchEntries,
                 used_entries: 0,
                 expiry_date: endDate,
                 status: 'active',
@@ -231,7 +230,7 @@ export default function AdminImport() {
         if (membershipType === 'punch_card') {
           await supabase.from('punch_cards').insert({
             family_id: familyId,
-            purchased_entries: 11,
+            purchased_entries: punchEntries,
             used_entries: 0,
             expiry_date: endDate,
             status: 'active',
@@ -316,7 +315,7 @@ export default function AdminImport() {
       <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
         <div style={{ fontSize: 13, color: '#1e40af', fontWeight: 600, marginBottom: 8 }}>עמודות נתמכות בקובץ:</div>
         <div style={{ fontSize: 12, color: '#1d4ed8', display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
-          {['חודשי מנוי', 'שם פרטי', 'שם משפחה', 'ת.ז', 'נייד מנוי ראשי', 'דוא"ל', 'סוג מנוי', 'שם בן/ת זוג', 'גיל', 'נייד משני', 'שמות ילדים 1-4', 'הערות'].map(c => (
+          {['שם פרטי', 'משפחה', 'ת.ז', 'נייד ראשי', 'דוא"ל', 'סוג מנוי', 'שם בן/ת זוג', 'נייד משני', 'ילד 1-4 + נייד', 'הערות'].map(c => (
             <span key={c} style={{ background: '#dbeafe', padding: '2px 8px', borderRadius: 4 }}>{c}</span>
           ))}
         </div>
@@ -386,7 +385,7 @@ export default function AdminImport() {
                           {r.membership_type_raw}
                         </span>
                       </td>
-                      <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 12 }}>{parseEndDate(r.months) ?? r.months}</td>
+                      <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 12 }}>{seasonEndDate()}</td>
                       <td style={{ padding: '9px 14px', color: '#6b7280' }}>{r.spouse_name}</td>
                       <td style={{ padding: '9px 14px', color: '#6b7280' }}>{r.children.map(c => c.name).join(', ')}</td>
                     </tr>
