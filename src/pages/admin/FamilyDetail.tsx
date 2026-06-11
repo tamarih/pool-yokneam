@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Family, FamilyMember, Membership, PunchCard, Entry } from '@/types'
 import { formatDate, formatTime, membershipTypeLabel, statusLabel, statusColor, entryTypeLabel } from '@/utils/format'
-import { ArrowRight, Edit2, UserPlus, Plus, RefreshCw, XCircle, QrCode } from 'lucide-react'
+import { ArrowRight, Edit2, UserPlus, Plus, RefreshCw, XCircle, QrCode, Trash2 } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import FamilyFormModal from '@/components/admin/FamilyFormModal'
 import FamilyQRCard from '@/components/shared/FamilyQRCard'
@@ -74,6 +74,16 @@ export default function AdminFamilyDetail() {
     const { error } = await supabase.from('punch_cards').update({ phones }).eq('id', pcId)
     if (error) toast.error('שגיאה בעדכון')
     else { toast.success('הטלפונים עודכנו'); load() }
+  }
+
+  async function deletePunchCard(pcId: string, used: number) {
+    const msg = used > 0
+      ? `הכרטיסייה הזו שומשה ${used} פעמים. למחוק לצמיתות? (היסטוריית הכניסות תישמר אבל הקישור לכרטיסייה יישבר)`
+      : 'למחוק את הכרטיסייה לצמיתות?'
+    if (!confirm(msg)) return
+    const { error } = await supabase.from('punch_cards').delete().eq('id', pcId)
+    if (error) toast.error('שגיאה: ' + error.message)
+    else { toast.success('הכרטיסייה נמחקה'); load() }
   }
 
   if (loading) return <LoadingSpinner />
@@ -197,7 +207,19 @@ export default function AdminFamilyDetail() {
               <div key={pc.id} style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>כרטיסייה</div>
-                  <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{statusLabel(pc.status)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{statusLabel(pc.status)}</span>
+                    <button
+                      onClick={() => deletePunchCard(pc.id, pc.used_entries)}
+                      title="מחק כרטיסייה"
+                      style={{
+                        background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                        padding: '6px 8px', cursor: 'pointer', color: '#dc2626',
+                        display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600,
+                      }}>
+                      <Trash2 size={14} /> מחק
+                    </button>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
                   {[['נרכשו', pc.purchased_entries], ['שומשו', pc.used_entries], ['נותרו', pc.remaining_entries]].map(([l, v]) => (
