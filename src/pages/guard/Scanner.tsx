@@ -283,34 +283,6 @@ export default function GuardScanner() {
             </div>
           )}
 
-          {/* Punch card section — separate from membership */}
-          {result.is_valid && result.punch_card && result.membership && (
-            <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '2px solid #fcd34d', marginBottom: 12 }}>
-              <div style={{ marginBottom: 12, fontWeight: 700, color: '#92400e', fontSize: 15 }}>
-                🎟️ ניקוב כרטיסייה — נותרו {result.punch_card.remaining_entries}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <button onClick={() => setPunchCount(p => Math.max(1, p - 1))} style={{
-                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
-                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
-                }}>−</button>
-                <span style={{ fontSize: 24, fontWeight: 800, minWidth: 40, textAlign: 'center' }}>{punchCount}</span>
-                <button onClick={() => setPunchCount(p => Math.min(result.punch_card!.remaining_entries, p + 1))} style={{
-                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
-                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
-                }}>+</button>
-                <span style={{ fontSize: 14, color: '#6b7280' }}>ניקובים</span>
-              </div>
-              <button onClick={confirmPunch} disabled={confirmingPunch} style={{
-                width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
-              }}>
-                {confirmingPunch ? 'מנקב...' : `🎟️ נקב ${punchCount} כניסות`}
-              </button>
-            </div>
-          )}
 
           {result.is_valid && (
             <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '1px solid #e5e7eb', marginBottom: 12 }}>
@@ -386,6 +358,35 @@ export default function GuardScanner() {
                   ? `✅ אשר כניסה — ${result.members?.filter((_, i) => selectedMembers.includes(i)).map(m => m.first_name).join(', ')}`
                   : '✅ אשר כניסה — 1 אדם'
                 }
+              </button>
+            </div>
+          )}
+
+          {/* Punch card section — after membership */}
+          {result.is_valid && result.punch_card && result.membership && (
+            <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '2px solid #fcd34d', marginBottom: 12 }}>
+              <div style={{ marginBottom: 12, fontWeight: 700, color: '#92400e', fontSize: 15 }}>
+                🎟️ ניקוב כרטיסייה — נותרו {result.punch_card.remaining_entries}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <button onClick={() => setPunchCount(p => Math.max(1, p - 1))} style={{
+                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
+                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
+                }}>−</button>
+                <span style={{ fontSize: 24, fontWeight: 800, minWidth: 40, textAlign: 'center' }}>{punchCount}</span>
+                <button onClick={() => setPunchCount(p => Math.min(result.punch_card!.remaining_entries, p + 1))} style={{
+                  width: 44, height: 44, borderRadius: 10, border: '2px solid #e5e7eb',
+                  background: 'white', fontSize: 22, fontWeight: 700, cursor: 'pointer',
+                }}>+</button>
+                <span style={{ fontSize: 14, color: '#6b7280' }}>ניקובים</span>
+              </div>
+              <button onClick={confirmPunch} disabled={confirmingPunch} style={{
+                width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
+              }}>
+                {confirmingPunch ? 'מנקב...' : `🎟️ נקב ${punchCount} כניסות`}
               </button>
             </div>
           )}
