@@ -9,6 +9,7 @@ type Stage = 'input' | 'result'
 interface FamilyResult {
   family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
   member_count: number
+  members: { first_name: string; last_name: string }[]
   membership: { id: string; end_date: string | null } | null
   punch_card: { id: string; remaining_entries: number } | null
   last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
@@ -177,8 +178,23 @@ export default function GuardScanner() {
               </div>
             </div>
 
-            <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>
-              👥 {result.member_count} אנשים על המנוי
+            <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1d4ed8', marginBottom: result.members && result.members.length > 0 ? 8 : 0 }}>
+                👥 {result.member_count} אנשים על המנוי
+              </div>
+              {result.members && result.members.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {result.members.map((mb, i) => (
+                    <span key={i} style={{
+                      background: '#dbeafe', color: '#1e40af',
+                      borderRadius: 8, padding: '4px 10px',
+                      fontSize: 13, fontWeight: 600,
+                    }}>
+                      {mb.first_name} {mb.last_name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {result.punch_card && !result.membership && (
