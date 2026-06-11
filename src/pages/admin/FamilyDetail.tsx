@@ -64,16 +64,16 @@ export default function AdminFamilyDetail() {
     else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); setAddPunchPhone(''); load() }
   }
 
-  async function updateMembershipPhone(membershipId: string, phone: string) {
-    const { error } = await supabase.from('memberships').update({ phone: phone.trim() || null }).eq('id', membershipId)
+  async function updateMembershipPhones(membershipId: string, phones: string[]) {
+    const { error } = await supabase.from('memberships').update({ phones }).eq('id', membershipId)
     if (error) toast.error('שגיאה בעדכון')
-    else { toast.success('הטלפון עודכן'); load() }
+    else { toast.success('הטלפונים עודכנו'); load() }
   }
 
-  async function updatePunchCardPhone(pcId: string, phone: string) {
-    const { error } = await supabase.from('punch_cards').update({ phone: phone.trim() || null }).eq('id', pcId)
+  async function updatePunchCardPhones(pcId: string, phones: string[]) {
+    const { error } = await supabase.from('punch_cards').update({ phones }).eq('id', pcId)
     if (error) toast.error('שגיאה בעדכון')
-    else { toast.success('הטלפון עודכן'); load() }
+    else { toast.success('הטלפונים עודכנו'); load() }
   }
 
   if (loading) return <LoadingSpinner />
@@ -173,10 +173,11 @@ export default function AdminFamilyDetail() {
                   <div style={{ fontWeight: 600 }}>{membershipTypeLabel(m.type)}</div>
                   <div style={{ fontSize: 13, color: '#6b7280' }}>{formatDate(m.start_date)} — {m.end_date ? formatDate(m.end_date) : 'ללא הגבלה'}</div>
                 </div>
-                <PhoneEditor
-                  value={m.phone}
-                  fallback={family.phone}
-                  onSave={(p) => updateMembershipPhone(m.id, p)}
+                <PhonesEditor
+                  phones={m.phones ?? []}
+                  legacyPhone={m.phone}
+                  familyPhone={family.phone}
+                  onSave={(arr) => updateMembershipPhones(m.id, arr)}
                 />
                 <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   {m.active ? 'פעיל' : 'לא פעיל'}
@@ -207,12 +208,13 @@ export default function AdminFamilyDetail() {
                   ))}
                 </div>
                 {pc.expiry_date && <div style={{ marginTop: 10, fontSize: 13, color: '#6b7280' }}>תוקף: {formatDate(pc.expiry_date)}</div>}
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>טלפון משויך:</span>
-                  <PhoneEditor
-                    value={pc.phone}
-                    fallback={family.phone}
-                    onSave={(p) => updatePunchCardPhone(pc.id, p)}
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600, marginBottom: 6 }}>טלפונים משויכים:</div>
+                  <PhonesEditor
+                    phones={pc.phones ?? []}
+                    legacyPhone={pc.phone}
+                    familyPhone={family.phone}
+                    onSave={(arr) => updatePunchCardPhones(pc.id, arr)}
                   />
                 </div>
               </div>
@@ -304,38 +306,80 @@ function Empty() {
   return <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 14 }}>אין נתונים</div>
 }
 
-function PhoneEditor({ value, fallback, onSave }: { value: string | null; fallback: string; onSave: (v: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [input, setInput] = useState(value ?? '')
-  if (editing) {
+function PhonesEditor({ phones, legacyPhone, familyPhone, onSave }: {
+  phones: string[]; legacyPhone: string | null; familyPhone: string; onSave: (arr: string[]) => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [newPhone, setNewPhone] = useState('')
+  const list = phones.length > 0 ? phones : (legacyPhone ? [legacyPhone] : [])
+
+  function addPhone() {
+    const p = newPhone.trim()
+    if (!p) return
+    if (list.includes(p)) { setNewPhone(''); setAdding(false); return }
+    onSave([...list, p])
+    setNewPhone('')
+    setAdding(false)
+  }
+  function removePhone(idx: number) {
+    onSave(list.filter((_, i) => i !== idx))
+  }
+
+  if (list.length === 0 && !adding) {
     return (
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        <input
-          autoFocus
-          type="tel"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="050-0000000"
-          style={{ padding: '6px 8px', border: '1.5px solid #1d4ed8', borderRadius: 6, fontSize: 13, outline: 'none', direction: 'ltr', width: 130 }}
-        />
-        <button onClick={() => { onSave(input); setEditing(false) }} style={{ background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>שמור</button>
-        <button onClick={() => { setInput(value ?? ''); setEditing(false) }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, color: '#6b7280' }}>ביטול</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{
+          background: '#fef3c7', color: '#92400e', borderRadius: 8, padding: '6px 10px',
+          fontSize: 12, fontWeight: 600,
+        }}>
+          📞 לא משויך → נופל ל-{familyPhone || '(טלפון משפחה ריק)'}
+        </span>
+        <button onClick={() => setAdding(true)} style={{
+          background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 8,
+          padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>+ הוסף טלפון</button>
       </div>
     )
   }
-  const isAssigned = value && value.trim()
+
   return (
-    <button
-      onClick={() => { setInput(value ?? ''); setEditing(true) }}
-      title={isAssigned ? 'לחצי לעריכה' : `לא משויך — נופל ל-${fallback || 'טלפון משפחה ריק'}`}
-      style={{
-        background: isAssigned ? '#dbeafe' : '#fef3c7',
-        color: isAssigned ? '#1d4ed8' : '#92400e',
-        border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-        fontSize: 13, fontWeight: 600, direction: 'ltr',
-      }}>
-      📞 {isAssigned ? value : 'לא משויך'}
-    </button>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+      {list.map((p, i) => (
+        <span key={i} style={{
+          background: '#dbeafe', color: '#1d4ed8', borderRadius: 8, padding: '6px 8px 6px 10px',
+          fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
+          direction: 'ltr',
+        }}>
+          📞 {p}
+          <button onClick={() => removePhone(i)} style={{
+            background: 'rgba(29,78,216,0.15)', border: 'none', borderRadius: 4,
+            width: 18, height: 18, cursor: 'pointer', color: '#1d4ed8',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 13, lineHeight: 1,
+          }} title="הסר">×</button>
+        </span>
+      ))}
+      {adding ? (
+        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+          <input
+            autoFocus
+            type="tel"
+            value={newPhone}
+            onChange={e => setNewPhone(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addPhone(); if (e.key === 'Escape') { setAdding(false); setNewPhone('') } }}
+            placeholder="050-0000000"
+            style={{ padding: '5px 8px', border: '1.5px solid #1d4ed8', borderRadius: 6, fontSize: 13, outline: 'none', direction: 'ltr', width: 120 }}
+          />
+          <button onClick={addPhone} style={{ background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>שמור</button>
+          <button onClick={() => { setAdding(false); setNewPhone('') }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 12, color: '#6b7280' }}>ביטול</button>
+        </span>
+      ) : (
+        <button onClick={() => setAdding(true)} style={{
+          background: '#f0fdf4', color: '#15803d', border: '1px dashed #86efac', borderRadius: 8,
+          padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>+ הוסף</button>
+      )}
+    </div>
   )
 }
 

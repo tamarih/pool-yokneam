@@ -56,6 +56,7 @@ export interface Membership {
   price: number | null
   notes: string | null
   phone: string | null
+  phones: string[]
   created_at: string
 }
 
@@ -70,6 +71,7 @@ export interface PunchCard {
   price: number | null
   notes: string | null
   phone: string | null
+  phones: string[]
   created_at: string
   updated_at: string
 }

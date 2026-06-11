@@ -124,6 +124,12 @@ export default function AdminImport() {
       const endDate = parseEndDate(row.months)
       const membershipType = parseMembershipType(row.membership_type_raw)
 
+      // collect all phones from the row (primary + spouse + children)
+      const allPhones = [row.phone, row.spouse_phone, ...row.children.map(c => c.phone)]
+        .map(p => (p ?? '').trim())
+        .filter(p => p.length >= 9)
+      const uniquePhones = Array.from(new Set(allPhones))
+
       try {
         // Check duplicate by phone (primary) or name if no phone
         const phone = row.phone || null
@@ -145,18 +151,49 @@ export default function AdminImport() {
         }
 
         if (existing) {
-          // If punch_card — add punch card to existing family
+          // family exists — sync phones onto its active membership/punch_card
           if (membershipType === 'punch_card') {
-            await supabase.from('punch_cards').insert({
-              family_id: existing.id,
-              purchased_entries: 11,
-              used_entries: 0,
-              expiry_date: endDate,
-              status: 'active',
-            })
-            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה (11 כניסות) נוספה למשפחה קיימת' })
+            // find existing punch card or insert new one
+            const { data: pc } = await supabase
+              .from('punch_cards')
+              .select('id, phones')
+              .eq('family_id', existing.id)
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (pc) {
+              const merged = Array.from(new Set([...(pc.phones ?? []), ...uniquePhones]))
+              await supabase.from('punch_cards').update({ phones: merged }).eq('id', pc.id)
+              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: `סונכרנו ${uniquePhones.length} טלפונים לכרטיסייה קיימת` })
+            } else {
+              await supabase.from('punch_cards').insert({
+                family_id: existing.id,
+                purchased_entries: 11,
+                used_entries: 0,
+                expiry_date: endDate,
+                status: 'active',
+                phones: uniquePhones,
+              })
+              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה (11 כניסות) נוספה למשפחה קיימת' })
+            }
           } else {
-            res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים — דולג' })
+            // sync phones onto active membership
+            const { data: ms } = await supabase
+              .from('memberships')
+              .select('id, phones')
+              .eq('family_id', existing.id)
+              .eq('active', true)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (ms) {
+              const merged = Array.from(new Set([...(ms.phones ?? []), ...uniquePhones]))
+              await supabase.from('memberships').update({ phones: merged }).eq('id', ms.id)
+              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: `סונכרנו ${uniquePhones.length} טלפונים למנוי קיים` })
+            } else {
+              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים, אין מנוי פעיל לסנכרון' })
+            }
           }
           continue
         }
@@ -181,7 +218,7 @@ export default function AdminImport() {
         if (famErr) throw new Error(famErr.message)
         const familyId = fam.id
 
-        // Create membership or punch card
+        // Create membership or punch card with all collected phones
         if (membershipType === 'punch_card') {
           await supabase.from('punch_cards').insert({
             family_id: familyId,
@@ -189,6 +226,7 @@ export default function AdminImport() {
             used_entries: 0,
             expiry_date: endDate,
             status: 'active',
+            phones: uniquePhones,
           })
         } else if (endDate) {
           await supabase.from('memberships').insert({
@@ -197,6 +235,7 @@ export default function AdminImport() {
             start_date: new Date().toISOString().slice(0, 10),
             end_date: endDate,
             active: true,
+            phones: uniquePhones,
           })
         }
 
