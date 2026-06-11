@@ -68,19 +68,20 @@ export default function GuardScanner() {
     setLoading(true)
     setError(null)
     try {
-      const jsQR = (await import('jsqr')).default
-      const img = new Image()
-      img.src = URL.createObjectURL(file)
-      await new Promise(resolve => { img.onload = resolve })
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height)
-      if (!code) { setError('לא זוהה QR בתמונה — נסה שוב'); setLoading(false); return }
-      const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: code.data })
+      const { Html5Qrcode } = await import('html5-qrcode')
+      const tempId = 'qr-scan-temp-' + Date.now()
+      const div = document.createElement('div')
+      div.id = tempId
+      div.style.display = 'none'
+      document.body.appendChild(div)
+      const scanner = new Html5Qrcode(tempId)
+      let qrValue: string
+      try {
+        qrValue = await scanner.scanFile(file, false)
+      } finally {
+        document.body.removeChild(div)
+      }
+      const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: qrValue })
       setLoading(false)
       if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
       if (data.error) { setError(data.error); return }
@@ -90,7 +91,7 @@ export default function GuardScanner() {
       setStage('result')
     } catch {
       setLoading(false)
-      setError('שגיאה בסריקת ה-QR')
+      setError('לא זוהה QR בתמונה — נסה שוב')
     }
   }
 
