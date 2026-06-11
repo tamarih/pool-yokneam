@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { CheckCircle, XCircle, Phone, Users, Search } from 'lucide-react'
+import { CheckCircle, XCircle, Phone, Users, Search, QrCode } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Stage = 'input' | 'result'
-type SearchMode = 'phone' | 'name'
+type SearchMode = 'phone' | 'name' | 'qr'
 
 interface FamilySearchResult {
   id: string
@@ -32,6 +32,7 @@ function minutesAgo(iso: string) {
 export default function GuardScanner() {
   const { user } = useAuth()
   const [searchMode, setSearchMode] = useState<SearchMode>('phone')
+  const qrInputRef = useRef<HTMLInputElement>(null)
   const [phone, setPhone] = useState('')
   const [nameQuery, setNameQuery] = useState('')
   const [nameResults, setNameResults] = useState<FamilySearchResult[]>([])
@@ -61,6 +62,36 @@ export default function GuardScanner() {
     setSelectedMembers([])
     setPunchCount(1)
     setStage('result')
+  }
+
+  async function scanQR(file: File) {
+    setLoading(true)
+    setError(null)
+    try {
+      const jsQR = (await import('jsqr')).default
+      const img = new Image()
+      img.src = URL.createObjectURL(file)
+      await new Promise(resolve => { img.onload = resolve })
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height)
+      if (!code) { setError('לא זוהה QR בתמונה — נסה שוב'); setLoading(false); return }
+      const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: code.data })
+      setLoading(false)
+      if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
+      if (data.error) { setError(data.error); return }
+      setResult(data as FamilyResult)
+      setSelectedMembers([])
+      setPunchCount(1)
+      setStage('result')
+    } catch {
+      setLoading(false)
+      setError('שגיאה בסריקת ה-QR')
+    }
   }
 
   async function searchByName(q: string) {
@@ -193,17 +224,21 @@ export default function GuardScanner() {
 
           {/* Mode toggle */}
           <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
-            {(['phone', 'name'] as SearchMode[]).map(mode => (
+            {([
+              { mode: 'phone', label: '📞 טלפון' },
+              { mode: 'name', label: '🔍 שם' },
+              { mode: 'qr', label: '📷 QR' },
+            ] as { mode: SearchMode; label: string }[]).map(({ mode, label }) => (
               <button key={mode} onClick={() => { setSearchMode(mode); setError(null); setNameResults([]) }} style={{
                 flex: 1, padding: '10px', border: 'none', borderRadius: 9,
                 background: searchMode === mode ? 'white' : 'transparent',
                 color: searchMode === mode ? '#1d4ed8' : '#6b7280',
                 fontWeight: searchMode === mode ? 700 : 500,
-                fontSize: 14, cursor: 'pointer',
+                fontSize: 13, cursor: 'pointer',
                 boxShadow: searchMode === mode ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
                 transition: 'all 0.15s',
               }}>
-                {mode === 'phone' ? '📞 חיפוש לפי טלפון' : '🔍 חיפוש לפי שם'}
+                {label}
               </button>
             ))}
           </div>
@@ -292,6 +327,41 @@ export default function GuardScanner() {
               )}
               {nameQuery.length >= 2 && !nameLoading && nameResults.length === 0 && (
                 <div style={{ color: '#9ca3af', fontSize: 14, padding: 12 }}>לא נמצאו תוצאות</div>
+              )}
+            </>
+          )}
+
+          {searchMode === 'qr' && (
+            <>
+              <p style={{ color: '#6b7280', marginBottom: 20, fontSize: 14 }}>
+                סרוק את ה-QR של המנוי
+              </p>
+              <input
+                ref={qrInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f) }}
+              />
+              <button
+                onClick={() => qrInputRef.current?.click()}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '20px',
+                  background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+                  color: 'white', border: 'none', borderRadius: 14,
+                  fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}>
+                <QrCode size={24} />
+                {loading ? 'סורק...' : 'פתח מצלמה לסריקה'}
+              </button>
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginTop: 12, textAlign: 'center' }}>
+                  {error}
+                </div>
               )}
             </>
           )}
