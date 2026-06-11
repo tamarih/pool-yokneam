@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Waves, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const { signIn, role } = useAuth()
@@ -52,12 +52,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            width: 72, height: 72, background: 'linear-gradient(135deg, #1e3a8a, #0ea5e9)',
-            borderRadius: 20, margin: '0 auto 16px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(14,165,233,0.35)',
+            margin: '0 auto 16px',
           }}>
-            <Waves size={36} color="white" />
+            <img src="/logo2.png" alt="יקנעם" style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: 16 }} />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: '#1e3a8a', marginBottom: 4 }}>בריכת יקנעם</h1>
           <p style={{ color: '#6b7280', fontSize: 14 }}>כניסה למערכת</p>
