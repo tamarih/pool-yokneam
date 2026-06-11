@@ -174,7 +174,10 @@ export default function GuardScanner() {
               </div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{familyLabel}</div>
-                <div style={{ fontSize: 13, color: '#6b7280' }}>מס׳ {result.family.family_number}</div>
+                {result.membership?.type_label && (
+                  <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>{result.membership.type_label}</div>
+                )}
+                <div style={{ fontSize: 12, color: '#6b7280' }}>מס׳ {result.family.family_number}</div>
               </div>
             </div>
 
@@ -197,7 +200,7 @@ export default function GuardScanner() {
               )}
             </div>
 
-            {result.punch_card && !result.membership && (() => {
+            {result.punch_card && (() => {
               const remaining = result.punch_card.remaining_entries
               const total = 11
               const used = total - remaining
@@ -272,6 +275,7 @@ export default function GuardScanner() {
               {(() => {
                 const isPunchCard = !!result.punch_card && !result.membership
                 const maxAllowed = isPunchCard ? result.punch_card!.remaining_entries : 8
+                // when both membership + punch_card exist, always use membership (no limit)
                 const nums = Array.from({ length: maxAllowed }, (_, i) => i + 1)
                 return (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
