@@ -212,9 +212,7 @@ export default function GuardScanner() {
               return (
                 <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
-                      🎟️ כרטיסייה{result.punch_card!.owner_name ? ` של ${result.punch_card!.owner_name}` : ''}
-                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>🎟️ כרטיסייה</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color }}>נותרו {remaining} מתוך {total}</span>
                   </div>
                   {/* progress bar */}

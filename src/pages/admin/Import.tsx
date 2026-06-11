@@ -131,7 +131,7 @@ export default function AdminImport() {
       const uniquePhones = Array.from(new Set(allPhones))
 
       try {
-        // Check duplicate by phone (primary) or name if no phone
+        // Check duplicate by phone first, then by last name
         const phone = row.phone || null
         let existing = null
         if (phone) {
@@ -141,7 +141,9 @@ export default function AdminImport() {
             .eq('phone', phone)
             .maybeSingle()
           existing = data
-        } else {
+        }
+        // If not found by phone, try last name (catches punch card rows for existing families)
+        if (!existing && familyName) {
           const { data } = await supabase
             .from('families')
             .select('id')
