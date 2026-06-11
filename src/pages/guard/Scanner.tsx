@@ -10,7 +10,7 @@ interface FamilyResult {
   family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
   member_count: number
   members: { first_name: string; last_name: string }[]
-  membership: { id: string; end_date: string | null } | null
+  membership: { id: string; end_date: string | null; type_label: string | null } | null
   punch_card: { id: string; remaining_entries: number } | null
   last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
   is_valid: boolean
@@ -221,8 +221,15 @@ export default function GuardScanner() {
               )
             })()}
             {result.membership && (
-              <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, color: '#15803d', marginBottom: 8 }}>
-                מנוי בתוקף ✓
+              <div style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>
+                  מנוי בתוקף ✓
+                </div>
+                {result.membership.type_label && (
+                  <div style={{ fontSize: 13, color: '#374151', marginTop: 3 }}>
+                    {result.membership.type_label}
+                  </div>
+                )}
               </div>
             )}
 

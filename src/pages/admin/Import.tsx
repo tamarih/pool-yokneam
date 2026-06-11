@@ -232,6 +232,7 @@ export default function AdminImport() {
           await supabase.from('memberships').insert({
             family_id: familyId,
             type: membershipType,
+            type_label: row.membership_type_raw || null,
             start_date: new Date().toISOString().slice(0, 10),
             end_date: endDate,
             active: true,
