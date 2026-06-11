@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { CheckCircle, XCircle, Phone, Users } from 'lucide-react'
+import { CheckCircle, XCircle, Phone, Users, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Stage = 'input' | 'result'
+type SearchMode = 'phone' | 'name'
+
+interface FamilySearchResult {
+  id: string
+  first_name: string | null
+  family_name: string
+  phone: string | null
+}
 
 interface FamilyResult {
   family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
@@ -23,7 +31,11 @@ function minutesAgo(iso: string) {
 
 export default function GuardScanner() {
   const { user } = useAuth()
+  const [searchMode, setSearchMode] = useState<SearchMode>('phone')
   const [phone, setPhone] = useState('')
+  const [nameQuery, setNameQuery] = useState('')
+  const [nameResults, setNameResults] = useState<FamilySearchResult[]>([])
+  const [nameLoading, setNameLoading] = useState(false)
   const [stage, setStage] = useState<Stage>('input')
   const [result, setResult] = useState<FamilyResult | null>(null)
   const [selectedMembers, setSelectedMembers] = useState<number[]>([])
@@ -45,6 +57,34 @@ export default function GuardScanner() {
     if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
     if (data.error) { setError(data.error); return }
 
+    setResult(data as FamilyResult)
+    setSelectedMembers([])
+    setPunchCount(1)
+    setStage('result')
+  }
+
+  async function searchByName(q: string) {
+    setNameQuery(q)
+    if (q.trim().length < 2) { setNameResults([]); return }
+    setNameLoading(true)
+    const { data } = await supabase
+      .from('families')
+      .select('id, first_name, family_name, phone')
+      .or(`family_name.ilike.%${q}%,first_name.ilike.%${q}%`)
+      .limit(8)
+    setNameLoading(false)
+    setNameResults(data ?? [])
+  }
+
+  async function selectFamily(family: FamilySearchResult) {
+    setNameResults([])
+    setNameQuery(`${family.first_name ?? ''} ${family.family_name}`.trim())
+    setLoading(true)
+    setError(null)
+    const { data, error: rpcError } = await supabase.rpc('get_family_by_id', { p_family_id: family.id })
+    setLoading(false)
+    if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
+    if (data.error) { setError(data.error); return }
     setResult(data as FamilyResult)
     setSelectedMembers([])
     setPunchCount(1)
@@ -123,6 +163,8 @@ export default function GuardScanner() {
 
   function reset() {
     setPhone('')
+    setNameQuery('')
+    setNameResults([])
     setStage('input')
     setResult(null)
     setError(null)
@@ -145,43 +187,114 @@ export default function GuardScanner() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 8px 24px rgba(14,165,233,0.2)',
           }}>
-            <Phone size={44} color="#0284c7" />
+            {searchMode === 'phone' ? <Phone size={44} color="#0284c7" /> : <Search size={44} color="#0284c7" />}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 6 }}>בדיקת מנוי</h2>
-          <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>הזן מספר טלפון לאימות</p>
 
-          <div style={{ position: 'relative', marginBottom: 12 }}>
-            <input
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && lookup()}
-              placeholder="050-0000000"
-              style={{
-                width: '100%', padding: '16px',
-                border: '2px solid #e5e7eb', borderRadius: 14,
-                fontSize: 22, outline: 'none', direction: 'ltr', textAlign: 'center',
-                fontFamily: 'inherit', boxSizing: 'border-box',
-              }}
-              autoFocus
-            />
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
+            {(['phone', 'name'] as SearchMode[]).map(mode => (
+              <button key={mode} onClick={() => { setSearchMode(mode); setError(null); setNameResults([]) }} style={{
+                flex: 1, padding: '10px', border: 'none', borderRadius: 9,
+                background: searchMode === mode ? 'white' : 'transparent',
+                color: searchMode === mode ? '#1d4ed8' : '#6b7280',
+                fontWeight: searchMode === mode ? 700 : 500,
+                fontSize: 14, cursor: 'pointer',
+                boxShadow: searchMode === mode ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s',
+              }}>
+                {mode === 'phone' ? '📞 חיפוש לפי טלפון' : '🔍 חיפוש לפי שם'}
+              </button>
+            ))}
           </div>
 
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginBottom: 12 }}>
-              {error}
-            </div>
+          {searchMode === 'phone' ? (
+            <>
+              <p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>הזן מספר טלפון לאימות</p>
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && lookup()}
+                  placeholder="050-0000000"
+                  style={{
+                    width: '100%', padding: '16px',
+                    border: '2px solid #e5e7eb', borderRadius: 14,
+                    fontSize: 22, outline: 'none', direction: 'ltr', textAlign: 'center',
+                    fontFamily: 'inherit', boxSizing: 'border-box',
+                  }}
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginBottom: 12 }}>
+                  {error}
+                </div>
+              )}
+              <button onClick={lookup} disabled={loading} style={{
+                width: '100%', padding: '16px',
+                background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+                color: 'white', border: 'none', borderRadius: 14,
+                fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
+              }}>
+                {loading ? 'מחפש...' : 'חפש מנוי'}
+              </button>
+            </>
+          ) : (
+            <>
+              <p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>הזן שם משפחה או שם פרטי</p>
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <input
+                  type="text"
+                  value={nameQuery}
+                  onChange={e => searchByName(e.target.value)}
+                  placeholder="לדוגמה: גלמונד"
+                  style={{
+                    width: '100%', padding: '16px',
+                    border: '2px solid #e5e7eb', borderRadius: 14,
+                    fontSize: 18, outline: 'none', textAlign: 'right',
+                    fontFamily: 'inherit', boxSizing: 'border-box',
+                  }}
+                  autoFocus
+                />
+                {nameLoading && (
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }}>מחפש...</span>
+                )}
+              </div>
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginBottom: 12 }}>
+                  {error}
+                </div>
+              )}
+              {loading && (
+                <div style={{ color: '#6b7280', fontSize: 14, padding: 12 }}>טוען נתונים...</div>
+              )}
+              {nameResults.length > 0 && (
+                <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden', textAlign: 'right' }}>
+                  {nameResults.map(f => (
+                    <button key={f.id} onClick={() => selectFamily(f)} style={{
+                      display: 'block', width: '100%', padding: '14px 16px',
+                      border: 'none', borderBottom: '1px solid #f3f4f6',
+                      background: 'white', cursor: 'pointer', textAlign: 'right',
+                      fontSize: 16, fontWeight: 600, color: '#111827',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f0f9ff')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+                    >
+                      {[f.first_name, f.family_name].filter(Boolean).join(' ')}
+                      {f.phone && <span style={{ fontSize: 13, color: '#9ca3af', marginRight: 8, fontWeight: 400 }}>{f.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {nameQuery.length >= 2 && !nameLoading && nameResults.length === 0 && (
+                <div style={{ color: '#9ca3af', fontSize: 14, padding: 12 }}>לא נמצאו תוצאות</div>
+              )}
+            </>
           )}
-
-          <button onClick={lookup} disabled={loading} style={{
-            width: '100%', padding: '16px',
-            background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-            color: 'white', border: 'none', borderRadius: 14,
-            fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
-          }}>
-            {loading ? 'מחפש...' : 'חפש מנוי'}
-          </button>
         </div>
       )}
 
