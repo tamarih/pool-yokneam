@@ -567,7 +567,8 @@ const [phone, setPhone] = useState('')
                 מי נכנס? (לחץ לסימון)
               </div>
 
-              {result.members && result.members.length > 0 ? (
+              {result.membership && result.members && result.members.length > 0 ? (
+                // מנוי — הצג שמות
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
                   {result.members.filter((mb, i, arr) =>
                     arr.findIndex(m => m.first_name === mb.first_name) === i
@@ -593,9 +594,9 @@ const [phone, setPhone] = useState('')
                   })}
                 </div>
               ) : (
-                // fallback: no members in DB — show number grid
+                // כרטיסייה — הצג מספרים
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
-                  {[1,2,3,4,5,6,7,8].map(n => (
+                  {Array.from({ length: Math.min(result.punch_card?.remaining_entries ?? 8, 8) }, (_, i) => i + 1).map(n => (
                     <button key={n} onClick={() => setSelectedMembers(Array.from({length: n}, (_, i) => i))} style={{
                       padding: '14px 8px', border: '2px solid',
                       borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
