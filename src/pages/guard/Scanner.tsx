@@ -244,7 +244,7 @@ export default function GuardScanner() {
             ))}
           </div>
 
-          {searchMode === 'phone' ? (
+          {searchMode === 'phone' && (
             <>
               <p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>הזן מספר טלפון לאימות</p>
               <div style={{ marginBottom: 12 }}>
@@ -278,7 +278,9 @@ export default function GuardScanner() {
                 {loading ? 'מחפש...' : 'חפש מנוי'}
               </button>
             </>
-          ) : (
+          )}
+
+          {searchMode === 'name' && (
             <>
               <p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>הזן שם משפחה או שם פרטי</p>
               <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -341,7 +343,6 @@ export default function GuardScanner() {
                 ref={qrInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f) }}
               />
