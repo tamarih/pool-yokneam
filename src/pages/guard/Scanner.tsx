@@ -84,18 +84,21 @@ const [phone, setPhone] = useState('')
         image.src = dataUrl
       })
 
-      // Resize large images for better jsQR performance
-      const MAX = 1024
-      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight))
+      // Try multiple scales to find QR code
       const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.naturalWidth * scale)
-      canvas.height = Math.round(img.naturalHeight * scale)
       const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert',
-      })
+      let code = null
+      for (const MAX of [2048, 1024, 512]) {
+        const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight))
+        canvas.width = Math.round(img.naturalWidth * scale)
+        canvas.height = Math.round(img.naturalHeight * scale)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth',
+        })
+        if (code) break
+      }
 
       if (!code) {
         setLoading(false)
