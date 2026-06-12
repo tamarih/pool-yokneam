@@ -63,58 +63,75 @@ const [phone, setPhone] = useState('')
     setStage('result')
   }
 
-  const qrRegionId = 'qr-live-reader'
-  const qrScannerRef = useRef<{ stop: () => Promise<void> } | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const rafRef = useRef<number>(0)
   const [qrActive, setQrActive] = useState(false)
 
   async function startQRScanner() {
     setError(null)
-    setQrActive(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      setQrActive(true)
+    } catch {
+      setError('לא ניתן לגשת למצלמה — אפשר גישה בהגדרות')
+    }
   }
 
-  async function stopQRScanner() {
-    if (qrScannerRef.current) {
-      await qrScannerRef.current.stop().catch(() => {})
-      qrScannerRef.current = null
+  function stopQRScanner() {
+    cancelAnimationFrame(rafRef.current)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
     }
     setQrActive(false)
   }
 
   useEffect(() => {
     if (!qrActive) return
-    let cancelled = false
+    let active = true
 
-    async function init() {
-      const { Html5Qrcode } = await import('html5-qrcode')
-      const scanner = new Html5Qrcode(qrRegionId)
-      qrScannerRef.current = scanner
-      try {
-        await scanner.start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          async (qrValue) => {
-            if (cancelled) return
-            await stopQRScanner()
-            setLoading(true)
-            const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: qrValue })
-            setLoading(false)
-            if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
-            if (data.error) { setError(data.error); return }
-            setResult(data as FamilyResult)
-            setSelectedMembers([])
-            setPunchCount(1)
-            setStage('result')
-          },
-          () => {}
-        )
-      } catch {
-        if (!cancelled) setError('לא ניתן לגשת למצלמה — אפשר גישה בהגדרות')
-        setQrActive(false)
+    async function tick() {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      if (!video || !canvas || video.readyState < 2) {
+        if (active) rafRef.current = requestAnimationFrame(tick)
+        return
       }
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(video, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const jsQR = (await import('jsqr')).default
+      const code = jsQR(imageData.data, imageData.width, imageData.height)
+      if (code && active) {
+        active = false
+        stopQRScanner()
+        setLoading(true)
+        const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: code.data })
+        setLoading(false)
+        if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
+        if (data.error) { setError(data.error); return }
+        setResult(data as FamilyResult)
+        setSelectedMembers([])
+        setPunchCount(1)
+        setStage('result')
+        return
+      }
+      if (active) rafRef.current = requestAnimationFrame(tick)
     }
 
-    init()
-    return () => { cancelled = true; stopQRScanner() }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { active = false; cancelAnimationFrame(rafRef.current) }
   }, [qrActive])
 
   async function searchByName(q: string) {
@@ -362,28 +379,48 @@ const [phone, setPhone] = useState('')
                 כוון את המצלמה לקוד QR של המנוי
               </p>
 
-              {/* Live QR scanner */}
-              <div id={qrRegionId} style={{
-                width: '100%', borderRadius: 14, overflow: 'hidden',
-                display: qrActive ? 'block' : 'none',
-                marginBottom: 12,
-              }} />
+              {/* Hidden canvas for processing */}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-              {!qrActive && (
-                <button
-                  onClick={startQRScanner}
-                  disabled={loading}
-                  style={{
-                    width: '100%', padding: '20px',
-                    background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-                    color: 'white', border: 'none', borderRadius: 14,
-                    fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  }}>
+              {/* Live video preview */}
+              {qrActive && (
+                <div style={{ position: 'relative', marginBottom: 12, borderRadius: 14, overflow: 'hidden', background: '#000' }}>
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    style={{ width: '100%', display: 'block', borderRadius: 14 }}
+                  />
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 200, height: 200,
+                    border: '3px solid #0ea5e9',
+                    borderRadius: 12,
+                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
+                  }} />
+                  <p style={{ position: 'absolute', bottom: 12, width: '100%', textAlign: 'center', color: 'white', fontSize: 13, margin: 0 }}>
+                    כוון את ה-QR למסגרת הכחולה
+                  </p>
+                </div>
+              )}
+
+              {!qrActive && !loading && (
+                <button onClick={startQRScanner} style={{
+                  width: '100%', padding: '20px',
+                  background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+                  color: 'white', border: 'none', borderRadius: 14,
+                  fontSize: 18, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}>
                   <QrCode size={24} />
-                  {loading ? 'מחפש...' : 'הפעל סורק QR'}
+                  הפעל סורק QR
                 </button>
+              )}
+
+              {loading && (
+                <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: 16, padding: 20 }}>מזהה מנוי...</div>
               )}
 
               {qrActive && (
