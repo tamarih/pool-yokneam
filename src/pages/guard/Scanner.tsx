@@ -76,11 +76,14 @@ const [phone, setPhone] = useState('')
         video: { facingMode: 'environment' }
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-      }
       setQrActive(true)
+      // Set srcObject after render via setTimeout
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(() => {})
+        }
+      }, 100)
     } catch {
       setError('לא ניתן לגשת למצלמה — אפשר גישה בהגדרות')
     }
@@ -388,6 +391,7 @@ const [phone, setPhone] = useState('')
                   <video
                     ref={videoRef}
                     playsInline
+                    autoPlay
                     muted
                     style={{ width: '100%', display: 'block', borderRadius: 14 }}
                   />
