@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Family, Membership, PunchCard } from '@/types'
 import { QRCodeSVG } from 'qrcode.react'
 import { membershipTypeLabel, formatDate, daysUntil } from '@/utils/format'
-import { Waves, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 
 export default function MemberCard() {
@@ -73,7 +73,7 @@ export default function MemberCard() {
           textAlign: 'center',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-            <Waves size={20} color="rgba(255,255,255,0.8)" />
+            <img src="/logo2.png" alt="יקנעם" style={{ height: 28, width: 28, objectFit: 'contain', borderRadius: 6 }} />
             <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>בריכת יקנעם</span>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: 'white', marginBottom: 4 }}>

@@ -1,6 +1,6 @@
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { LogOut, Waves } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 
 export default function MemberLayout() {
   const { profile, signOut } = useAuth()
@@ -18,9 +18,7 @@ export default function MemberLayout() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ background: '#0ea5e9', borderRadius: 10, padding: 8 }}>
-            <Waves size={22} color="white" />
-          </div>
+          <img src="/logo2.png" alt="יקנעם" style={{ height: 44, width: 44, objectFit: 'contain', borderRadius: 10 }} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 18, color: '#1e3a8a' }}>בריכת יקנעם</div>
             <div style={{ fontSize: 12, color: '#6b7280' }}>שלום, {profile?.full_name}</div>
