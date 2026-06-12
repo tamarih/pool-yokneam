@@ -378,7 +378,6 @@ const [phone, setPhone] = useState('')
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   disabled={loading}
                   style={{ display: 'none' }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f); e.target.value = '' }}
