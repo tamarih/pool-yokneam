@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { CheckCircle, XCircle, Phone, Users, Search, QrCode } from 'lucide-react'
@@ -63,62 +63,59 @@ const [phone, setPhone] = useState('')
     setStage('result')
   }
 
-  async function scanQR(file: File) {
-    setLoading(true)
+  const qrRegionId = 'qr-live-reader'
+  const qrScannerRef = useRef<{ stop: () => Promise<void> } | null>(null)
+  const [qrActive, setQrActive] = useState(false)
+
+  async function startQRScanner() {
     setError(null)
-    try {
-      const jsQR = (await import('jsqr')).default
-
-      // Load image via FileReader + Image element (works on all browsers including Safari/iPhone)
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = e => resolve(e.target!.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image()
-        image.onload = () => resolve(image)
-        image.onerror = reject
-        image.src = dataUrl
-      })
-
-      // Try multiple scales to find QR code
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')!
-      let code = null
-      for (const MAX of [2048, 1024, 512]) {
-        const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight))
-        canvas.width = Math.round(img.naturalWidth * scale)
-        canvas.height = Math.round(img.naturalHeight * scale)
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'attemptBoth',
-        })
-        if (code) break
-      }
-
-      if (!code) {
-        setLoading(false)
-        setError('לא זוהה QR בתמונה — נסה שוב')
-        return
-      }
-
-      const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: code.data })
-      setLoading(false)
-      if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
-      if (data.error) { setError(data.error); return }
-      setResult(data as FamilyResult)
-      setSelectedMembers([])
-      setPunchCount(1)
-      setStage('result')
-    } catch {
-      setLoading(false)
-      setError('לא זוהה QR בתמונה — נסה שוב')
-    }
+    setQrActive(true)
   }
+
+  async function stopQRScanner() {
+    if (qrScannerRef.current) {
+      await qrScannerRef.current.stop().catch(() => {})
+      qrScannerRef.current = null
+    }
+    setQrActive(false)
+  }
+
+  useEffect(() => {
+    if (!qrActive) return
+    let cancelled = false
+
+    async function init() {
+      const { Html5Qrcode } = await import('html5-qrcode')
+      const scanner = new Html5Qrcode(qrRegionId)
+      qrScannerRef.current = scanner
+      try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          async (qrValue) => {
+            if (cancelled) return
+            await stopQRScanner()
+            setLoading(true)
+            const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: qrValue })
+            setLoading(false)
+            if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
+            if (data.error) { setError(data.error); return }
+            setResult(data as FamilyResult)
+            setSelectedMembers([])
+            setPunchCount(1)
+            setStage('result')
+          },
+          () => {}
+        )
+      } catch {
+        if (!cancelled) setError('לא ניתן לגשת למצלמה — אפשר גישה בהגדרות')
+        setQrActive(false)
+      }
+    }
+
+    init()
+    return () => { cancelled = true; stopQRScanner() }
+  }, [qrActive])
 
   async function searchByName(q: string) {
     setNameQuery(q)
@@ -361,28 +358,44 @@ const [phone, setPhone] = useState('')
 
           {searchMode === 'qr' && (
             <>
-              <p style={{ color: '#6b7280', marginBottom: 20, fontSize: 14 }}>
-                סרוק את ה-QR של המנוי
+              <p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>
+                כוון את המצלמה לקוד QR של המנוי
               </p>
-              <label style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                width: '100%', padding: '20px',
-                background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-                color: 'white', borderRadius: 14,
-                fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
-                boxSizing: 'border-box',
-              }}>
-                <QrCode size={24} />
-                {loading ? 'סורק...' : 'פתח מצלמה לסריקה'}
-                <input
-                  type="file"
-                  accept="image/*"
+
+              {/* Live QR scanner */}
+              <div id={qrRegionId} style={{
+                width: '100%', borderRadius: 14, overflow: 'hidden',
+                display: qrActive ? 'block' : 'none',
+                marginBottom: 12,
+              }} />
+
+              {!qrActive && (
+                <button
+                  onClick={startQRScanner}
                   disabled={loading}
-                  style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f); e.target.value = '' }}
-                />
-              </label>
+                  style={{
+                    width: '100%', padding: '20px',
+                    background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+                    color: 'white', border: 'none', borderRadius: 14,
+                    fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  }}>
+                  <QrCode size={24} />
+                  {loading ? 'מחפש...' : 'הפעל סורק QR'}
+                </button>
+              )}
+
+              {qrActive && (
+                <button onClick={stopQRScanner} style={{
+                  width: '100%', padding: '12px', marginTop: 8,
+                  background: '#f3f4f6', border: 'none', borderRadius: 12,
+                  fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#6b7280',
+                }}>
+                  ביטול
+                </button>
+              )}
+
               {error && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginTop: 12, textAlign: 'center' }}>
                   {error}
