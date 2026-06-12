@@ -92,8 +92,8 @@ export default function MemberCard() {
             <QRCodeSVG
               value={family.qr_token}
               size={220}
-              level="H"
-              fgColor="#1e3a8a"
+              level="M"
+              fgColor="#000000"
               includeMargin={false}
             />
           </div>
