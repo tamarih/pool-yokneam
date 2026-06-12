@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { CheckCircle, XCircle, Phone, Users, Search, QrCode } from 'lucide-react'
@@ -32,8 +32,7 @@ function minutesAgo(iso: string) {
 export default function GuardScanner() {
   const { user } = useAuth()
   const [searchMode, setSearchMode] = useState<SearchMode>('phone')
-  const qrInputRef = useRef<HTMLInputElement>(null)
-  const [phone, setPhone] = useState('')
+const [phone, setPhone] = useState('')
   const [nameQuery, setNameQuery] = useState('')
   const [nameResults, setNameResults] = useState<FamilySearchResult[]>([])
   const [nameLoading, setNameLoading] = useState(false)
