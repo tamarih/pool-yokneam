@@ -357,27 +357,26 @@ export default function GuardScanner() {
               <p style={{ color: '#6b7280', marginBottom: 20, fontSize: 14 }}>
                 סרוק את ה-QR של המנוי
               </p>
-              <input
-                ref={qrInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f) }}
-              />
-              <button
-                onClick={() => qrInputRef.current?.click()}
-                disabled={loading}
-                style={{
-                  width: '100%', padding: '20px',
-                  background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-                  color: 'white', border: 'none', borderRadius: 14,
-                  fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                width: '100%', padding: '20px',
+                background: loading ? '#93c5fd' : 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
+                color: 'white', borderRadius: 14,
+                fontSize: 18, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
+                boxSizing: 'border-box',
+              }}>
                 <QrCode size={24} />
                 {loading ? 'סורק...' : 'פתח מצלמה לסריקה'}
-              </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  disabled={loading}
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) scanQR(f); e.target.value = '' }}
+                />
+              </label>
               {error && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontSize: 14, marginTop: 12, textAlign: 'center' }}>
                   {error}
