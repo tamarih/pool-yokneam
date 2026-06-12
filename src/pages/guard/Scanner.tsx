@@ -69,19 +69,36 @@ export default function GuardScanner() {
     setError(null)
     try {
       const jsQR = (await import('jsqr')).default
-      const img = await createImageBitmap(file)
+
+      // Load image via FileReader + Image element (works on all browsers including Safari/iPhone)
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = e => resolve(e.target!.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = reject
+        image.src = dataUrl
+      })
+
       const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0)
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const code = jsQR(imageData.data, imageData.width, imageData.height)
+
       if (!code) {
         setLoading(false)
         setError('לא זוהה QR בתמונה — נסה שוב')
         return
       }
+
       const { data, error: rpcError } = await supabase.rpc('get_family_by_qr_token', { p_token: code.data })
       setLoading(false)
       if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
