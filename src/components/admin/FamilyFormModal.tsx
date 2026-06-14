@@ -22,14 +22,17 @@ interface Props {
 export default function FamilyFormModal({ onClose, family }: Props) {
   const isEdit = !!family
   const [form, setForm] = useState({
+    first_name: family?.first_name ?? '',
     family_name: family?.family_name ?? '',
     phone: family?.phone ?? '',
     address: family?.address ?? '',
     membership_type: family?.membership_type ?? 'seasonal',
+    membership_label: '',
     start_date: family?.start_date ?? new Date().toISOString().slice(0, 10),
-    end_date: family?.end_date ?? '',
+    end_date: family?.end_date ?? '2026-10-31',
     status: family?.status ?? 'active',
     notes: family?.notes ?? '',
+    punch_entries: '11',
   })
   const [loading, setLoading] = useState(false)
 
@@ -41,8 +44,14 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     e.preventDefault()
     setLoading(true)
     const payload = {
-      ...form,
+      first_name: form.first_name || null,
+      family_name: form.family_name,
+      phone: form.phone || null,
+      address: form.address || null,
+      membership_type: form.membership_type,
+      start_date: form.start_date,
       end_date: form.end_date || null,
+      status: form.status,
       notes: form.notes || null,
     }
 
@@ -52,8 +61,35 @@ export default function FamilyFormModal({ onClose, family }: Props) {
       error = res.error
     } else {
       const familyNumber = await supabase.rpc('next_family_number')
-      const res = await supabase.from('families').insert({ ...payload, family_number: familyNumber.data })
-      error = res.error
+      const { data: newFamily, error: insertError } = await supabase
+        .from('families').insert({ ...payload, family_number: familyNumber.data }).select().single()
+      error = insertError
+      if (!error && newFamily) {
+        // Add membership or punch card
+        if (form.membership_type === 'punch_card') {
+          const entries = parseInt(form.punch_entries) || 11
+          await supabase.from('punch_cards').insert({
+            family_id: newFamily.id,
+            purchased_entries: entries,
+            used_entries: 0,
+            status: 'active',
+            expiry_date: form.end_date || null,
+          })
+        } else {
+          const labelMap: Record<string, string> = {
+            seasonal: form.membership_label || 'מנוי עונתי',
+            annual: form.membership_label || 'מנוי שנתי',
+          }
+          await supabase.from('memberships').insert({
+            family_id: newFamily.id,
+            type: form.membership_type,
+            type_label: labelMap[form.membership_type] || form.membership_label || form.membership_type,
+            start_date: form.start_date,
+            end_date: form.end_date || null,
+            active: true,
+          })
+        }
+      }
     }
 
     setLoading(false)
@@ -86,18 +122,41 @@ export default function FamilyFormModal({ onClose, family }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Field label="שם משפחה *" value={form.family_name} onChange={v => set('family_name', v)} required />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="שם פרטי" value={form.first_name} onChange={v => set('first_name', v)} />
+            <Field label="שם משפחה *" value={form.family_name} onChange={v => set('family_name', v)} required />
+          </div>
           <Field label="טלפון" value={form.phone} onChange={v => set('phone', v)} type="tel" />
           <Field label="כתובת" value={form.address} onChange={v => set('address', v)} />
 
           <div>
             <label style={labelStyle}>סוג מנוי *</label>
-            <select value={form.membership_type} onChange={e => set('membership_type', e.target.value)} style={selectStyle} required>
-              <option value="seasonal">מנוי עונתי</option>
+            <select
+              value={form.membership_label || form.membership_type}
+              onChange={e => {
+                const v = e.target.value
+                if (v === 'punch_card_11') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה 11 כניסות'); set('punch_entries', '11') }
+                else if (v === 'punch_card') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה') }
+                else if (v === 'individual') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד - 500 ₪') }
+                else if (v === 'couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי - 800 ₪') }
+                else if (v === 'family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי משפחתי - 1000 ₪') }
+                else if (v === 'pensioner') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי פנסיונר') }
+                else if (v === 'annual') { set('membership_type', 'annual'); set('membership_label', 'מנוי שנתי') }
+              }}
+              style={selectStyle} required>
+              <option value="individual">מנוי יחיד - 500 ₪</option>
+              <option value="couple">מנוי זוגי - 800 ₪</option>
+              <option value="family">מנוי משפחתי - 1000 ₪</option>
+              <option value="pensioner">מנוי פנסיונר</option>
               <option value="annual">מנוי שנתי</option>
-              <option value="punch_card">כרטיסייה</option>
+              <option value="punch_card_11">כרטיסייה 11 כניסות</option>
+              <option value="punch_card">כרטיסייה (אחר)</option>
             </select>
           </div>
+
+          {form.membership_type === 'punch_card' && (
+            <Field label="מספר כניסות" value={form.punch_entries} onChange={v => set('punch_entries', v)} type="number" />
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="תאריך התחלה *" value={form.start_date} onChange={v => set('start_date', v)} type="date" required />
