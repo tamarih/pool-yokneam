@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Family } from '@/types'
 import { formatDate, membershipTypeLabel, statusLabel, statusColor } from '@/utils/format'
-import { Plus, Search, RefreshCw, ChevronLeft } from 'lucide-react'
+import { Plus, Search, RefreshCw, ChevronLeft, Trash2 } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import FamilyFormModal from '@/components/admin/FamilyFormModal'
 
@@ -15,6 +15,16 @@ export default function AdminFamilies() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function deleteFamily(e: React.MouseEvent, id: string, name: string) {
+    e.stopPropagation()
+    if (!confirm(`למחוק את ${name}? פעולה זו לא ניתנת לביטול.`)) return
+    setDeletingId(id)
+    await supabase.from('families').delete().eq('id', id)
+    setDeletingId(null)
+    load()
+  }
 
   useEffect(() => { load() }, [])
 
@@ -124,8 +134,20 @@ export default function AdminFamilies() {
                         {statusLabel(f.status)}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <ChevronLeft size={16} color="#9ca3af" />
+                      <button
+                        onClick={e => deleteFamily(e, f.id, `${f.first_name ?? ''} ${f.family_name}`)}
+                        disabled={deletingId === f.id}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#ef4444', padding: 4, borderRadius: 6,
+                          opacity: deletingId === f.id ? 0.5 : 1,
+                        }}
+                        title="מחק משפחה"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </td>
                   </tr>
                 )
