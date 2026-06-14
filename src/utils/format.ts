@@ -18,7 +18,11 @@ const IL_TZ = 'Asia/Jerusalem'
 export function formatTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '—'
   try {
-    const d = new Date(timeStr)
+    // Postgres time-only field comes as "HH:MM:SS" — prefix a date so it's valid UTC
+    const iso = /^\d{2}:\d{2}/.test(timeStr) && !timeStr.includes('T')
+      ? `2000-01-01T${timeStr}Z`
+      : timeStr
+    const d = new Date(iso)
     if (isNaN(d.getTime())) return timeStr.slice(0, 5)
     return d.toLocaleTimeString(IL_LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: IL_TZ })
   } catch {
