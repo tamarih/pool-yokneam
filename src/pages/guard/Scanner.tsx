@@ -236,6 +236,7 @@ const [phone, setPhone] = useState('')
   }
 
   function reset() {
+    stopQRScanner()
     setPhone('')
     setNameQuery('')
     setNameResults([])
@@ -244,6 +245,7 @@ const [phone, setPhone] = useState('')
     setError(null)
     setSelectedMembers([])
     setPunchCount(1)
+    setSearchMode('phone')
   }
 
   const familyLabel = result ? [result.family.first_name, result.family.family_name].filter(Boolean).join(' ') : ''
