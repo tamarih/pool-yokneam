@@ -18,9 +18,10 @@ const IL_TZ = 'Asia/Jerusalem'
 export function formatTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '—'
   try {
-    // Postgres time-only field comes as "HH:MM:SS" — prefix a date so it's valid UTC
+    // Postgres time-only field comes as "HH:MM:SS" — prefix today's date so DST is correct
+    const today = new Date().toISOString().slice(0, 10)
     const iso = /^\d{2}:\d{2}/.test(timeStr) && !timeStr.includes('T')
-      ? `2000-01-01T${timeStr}Z`
+      ? `${today}T${timeStr}Z`
       : timeStr
     const d = new Date(iso)
     if (isNaN(d.getTime())) return timeStr.slice(0, 5)
