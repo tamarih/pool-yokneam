@@ -35,9 +35,22 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     punch_entries: '11',
   })
   const [loading, setLoading] = useState(false)
+  const [members, setMembers] = useState<{ first_name: string; last_name: string }[]>([])
 
   function set(field: string, value: string) {
     setForm(p => ({ ...p, [field]: value }))
+  }
+
+  function addMember() {
+    setMembers(p => [...p, { first_name: '', last_name: form.family_name }])
+  }
+
+  function updateMember(i: number, field: string, value: string) {
+    setMembers(p => p.map((m, idx) => idx === i ? { ...m, [field]: value } : m))
+  }
+
+  function removeMember(i: number) {
+    setMembers(p => p.filter((_, idx) => idx !== i))
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -65,6 +78,13 @@ export default function FamilyFormModal({ onClose, family }: Props) {
         .from('families').insert({ ...payload, family_number: familyNumber.data }).select().single()
       error = insertError
       if (!error && newFamily) {
+        // Add family members
+        const validMembers = members.filter(m => m.first_name.trim())
+        if (validMembers.length > 0) {
+          await supabase.from('family_members').insert(
+            validMembers.map(m => ({ family_id: newFamily.id, first_name: m.first_name.trim(), last_name: m.last_name.trim() || form.family_name }))
+          )
+        }
         // Add membership or punch card
         if (form.membership_type === 'punch_card') {
           const entries = parseInt(form.punch_entries) || 11
@@ -178,6 +198,41 @@ export default function FamilyFormModal({ onClose, family }: Props) {
             <label style={labelStyle}>הערות</label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
+
+          {!isEdit && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <label style={labelStyle}>חברי משפחה</label>
+                <button type="button" onClick={addMember} style={{
+                  background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+                  padding: '4px 12px', fontSize: 13, color: '#1d4ed8', cursor: 'pointer', fontWeight: 600,
+                }}>+ הוסף חבר</button>
+              </div>
+              {members.map((m, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                  <input
+                    placeholder="שם פרטי"
+                    value={m.first_name}
+                    onChange={e => updateMember(i, 'first_name', e.target.value)}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <input
+                    placeholder="שם משפחה"
+                    value={m.last_name}
+                    onChange={e => updateMember(i, 'last_name', e.target.value)}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <button type="button" onClick={() => removeMember(i)} style={{
+                    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                    padding: '8px 10px', color: '#dc2626', cursor: 'pointer', fontSize: 16, fontWeight: 700,
+                  }}>×</button>
+                </div>
+              ))}
+              {members.length === 0 && (
+                <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>לחץ "+ הוסף חבר" להוספת בן/בת זוג או ילדים</p>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 4 }}>
             <button type="button" onClick={onClose} style={{
