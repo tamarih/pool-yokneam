@@ -12,17 +12,26 @@ export function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+const IL_LOCALE = 'he-IL'
+const IL_TZ = 'Asia/Jerusalem'
+
 export function formatTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '—'
-  return timeStr.slice(0, 5)
+  try {
+    const d = new Date(timeStr)
+    if (isNaN(d.getTime())) return timeStr.slice(0, 5)
+    return d.toLocaleTimeString(IL_LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: IL_TZ })
+  } catch {
+    return timeStr.slice(0, 5)
+  }
 }
 
 export function formatDateTime(ts: string | null | undefined): string {
   if (!ts) return '—'
   try {
-    const d = parseISO(ts)
-    if (!isValid(d)) return '—'
-    return format(d, 'dd/MM/yyyy HH:mm', { locale: he })
+    const d = new Date(ts)
+    if (isNaN(d.getTime())) return '—'
+    return d.toLocaleString(IL_LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: IL_TZ })
   } catch {
     return '—'
   }
