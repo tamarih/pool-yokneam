@@ -204,8 +204,6 @@ const [phone, setPhone] = useState('')
     else setResult({ ...result, last_entry: null })
   }
 
-  const peopleCount = selectedMembers.length || 1
-
   async function confirmEntry() {
     if (!result) return
     const count = selectedMembers.length || 1
@@ -621,15 +619,15 @@ const [phone, setPhone] = useState('')
           )}
 
 
-          {result.is_valid && (
+          {/* Membership entry — show member chips */}
+          {result.is_valid && result.membership && (
             <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '1px solid #e5e7eb', marginBottom: 12 }}>
               <div style={{ marginBottom: 12, fontWeight: 700, color: '#374151', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Users size={16} />
                 מי נכנס? (לחץ לסימון)
               </div>
 
-              {result.membership && result.members && result.members.length > 0 ? (
-                // מנוי — הצג שמות
+              {result.members && result.members.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
                   {result.members.filter((mb, i, arr) =>
                     arr.findIndex(m => m.first_name === mb.first_name) === i
@@ -654,20 +652,6 @@ const [phone, setPhone] = useState('')
                     )
                   })}
                 </div>
-              ) : (
-                // כרטיסייה — הצג מספרים
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
-                  {Array.from({ length: Math.min(result.punch_card?.remaining_entries ?? 8, 8) }, (_, i) => i + 1).map(n => (
-                    <button key={n} onClick={() => setSelectedMembers(Array.from({length: n}, (_, i) => i))} style={{
-                      padding: '14px 8px', border: '2px solid',
-                      borderColor: peopleCount === n ? '#1d4ed8' : '#e5e7eb',
-                      borderRadius: 12, background: peopleCount === n ? '#dbeafe' : 'white',
-                      color: peopleCount === n ? '#1d4ed8' : '#374151',
-                      fontWeight: peopleCount === n ? 800 : 500,
-                      fontSize: 20, cursor: 'pointer',
-                    }}>{n}</button>
-                  ))}
-                </div>
               )}
 
               {selectedMembers.length === 0 && result.members && result.members.length > 0 && (
@@ -676,15 +660,9 @@ const [phone, setPhone] = useState('')
                 </div>
               )}
 
-              {result.punch_card && !result.membership && result.punch_card.remaining_entries < (selectedMembers.length || 1) && (
-                <div style={{ background: '#fef2f2', borderRadius: 10, padding: '10px 14px', color: '#dc2626', fontWeight: 600, fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
-                  ❌ נותרו רק {result.punch_card.remaining_entries} כניסות
-                </div>
-              )}
-
               <button
                 onClick={confirmEntry}
-                disabled={confirming || (!!result.punch_card && !result.membership && result.punch_card.remaining_entries < (selectedMembers.length || 1))}
+                disabled={confirming}
                 style={{
                   width: '100%', padding: '16px', borderRadius: 14, border: 'none',
                   background: 'linear-gradient(135deg, #16a34a, #22c55e)',
@@ -700,8 +678,8 @@ const [phone, setPhone] = useState('')
             </div>
           )}
 
-          {/* Punch card section — after membership */}
-          {result.is_valid && result.punch_card && result.membership && (
+          {/* Punch card section — shown whenever a punch_card exists */}
+          {result.is_valid && result.punch_card && (
             <div style={{ background: 'white', borderRadius: 16, padding: 20, border: '2px solid #fcd34d', marginBottom: 12 }}>
               <div style={{ marginBottom: 12, fontWeight: 700, color: '#92400e', fontSize: 15 }}>
                 🎟️ ניקוב כרטיסייה — נותרו {result.punch_card.remaining_entries}
@@ -718,7 +696,7 @@ const [phone, setPhone] = useState('')
                 }}>+</button>
                 <span style={{ fontSize: 14, color: '#6b7280' }}>ניקובים</span>
               </div>
-              <button onClick={confirmPunch} disabled={confirmingPunch} style={{
+              <button onClick={confirmPunch} disabled={confirmingPunch || punchCount > result.punch_card.remaining_entries} style={{
                 width: '100%', padding: '14px', borderRadius: 12, border: 'none',
                 background: 'linear-gradient(135deg, #d97706, #f59e0b)',
                 color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer',
