@@ -15,6 +15,7 @@ interface ParsedFamily {
   spouse_age: string
   spouse_phone: string
   children: { name: string; age: string; phone: string }[]
+  grandchildren_count: number | null
   notes: string
 }
 
@@ -84,6 +85,11 @@ function parseHeaderlessFormat(data: any[][]): ParsedFamily[] {
       spouse_age: String(r[15] ?? '').trim(),
       spouse_phone: String(r[16] ?? '').trim(),
       children,
+      grandchildren_count: (() => {
+        const raw = String(r[29] ?? '').trim()
+        const n = parseInt(raw)
+        return Number.isFinite(n) && n > 0 ? n : null
+      })(),
       notes: String(r[30] ?? '').trim(),
     })
   }
@@ -151,6 +157,7 @@ export default function AdminImport() {
     const iSpouseName = col('שם בן')
     const iSpousePhone = col('נייד מנוי משני')
     const iNotes = col('הערות')
+    const iGrandchildren = col('נכדים')
 
     // Children: find columns "שם מנוי ילד 1", "שם מנוי ילד 2" etc.
     const childCols: { nameIdx: number; phoneIdx: number }[] = []
@@ -191,6 +198,12 @@ export default function AdminImport() {
         spouse_age: '',
         spouse_phone: iSpousePhone >= 0 ? String(r[iSpousePhone] ?? '').trim() : '',
         children,
+        grandchildren_count: (() => {
+          if (iGrandchildren < 0) return null
+          const raw = String(r[iGrandchildren] ?? '').trim()
+          const n = parseInt(raw)
+          return Number.isFinite(n) && n > 0 ? n : null
+        })(),
         notes: iNotes >= 0 ? String(r[iNotes] ?? '').trim() : '',
       })
     }
@@ -281,6 +294,7 @@ export default function AdminImport() {
                 end_date: endDate,
                 active: true,
                 phones: uniquePhones,
+                grandchildren_count: row.grandchildren_count ?? null,
               })
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'מנוי נוסף למשפחה קיימת' })
             }
@@ -329,6 +343,7 @@ export default function AdminImport() {
             end_date: endDate,
             active: true,
             phones: uniquePhones,
+            grandchildren_count: row.grandchildren_count ?? null,
           })
         }
 

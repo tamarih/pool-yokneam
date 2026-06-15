@@ -57,6 +57,7 @@ export interface Membership {
   notes: string | null
   phone: string | null
   phones: string[]
+  grandchildren_count: number | null
   created_at: string
 }
 

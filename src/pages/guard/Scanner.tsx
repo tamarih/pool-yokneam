@@ -18,7 +18,7 @@ interface FamilyResult {
   family: { id: string; family_name: string; first_name: string | null; family_number: string | null; status: string }
   member_count: number
   members: { first_name: string; last_name: string }[]
-  membership: { id: string; end_date: string | null; type_label: string | null } | null
+  membership: { id: string; end_date: string | null; type_label: string | null; grandchildren_count: number | null } | null
   punch_card: { id: string; remaining_entries: number; owner_name: string | null } | null
   last_entry: { id: string; people_count: number; created_at: string; entry_type: string } | null
   is_valid: boolean
@@ -571,6 +571,15 @@ const [phone, setPhone] = useState('')
                 {result.membership.type_label && (
                   <div style={{ fontSize: 13, color: '#6b7280', marginTop: 3 }}>
                     {result.membership.type_label}
+                  </div>
+                )}
+                {(result.membership.grandchildren_count ?? 0) > 0 && (
+                  <div style={{
+                    marginTop: 8, background: '#fef3c7', color: '#92400e',
+                    borderRadius: 8, padding: '6px 10px',
+                    fontSize: 13, fontWeight: 700, display: 'inline-block',
+                  }}>
+                    👶 כולל עד {result.membership.grandchildren_count} נכדים (לא נספרים)
                   </div>
                 )}
               </div>
