@@ -44,6 +44,52 @@ function seasonEndDate(): string {
   return `${year}-10-31`
 }
 
+// 15.06.2026.xls format — positional, no Hebrew headers.
+// Columns: 0=date, 1+2=amounts, 4=first_name, 5=last_name, 6=id, 7=phone, 8=email,
+//          9=type, 14=spouse_name, 15=spouse_age, 16=spouse_phone,
+//          17/20/23/26=child name (each +1 age, +2 phone), 30=notes
+function parseHeaderlessFormat(data: any[][]): ParsedFamily[] {
+  const parsed: ParsedFamily[] = []
+  for (let i = 0; i < data.length; i++) {
+    const r = data[i] ?? []
+    const firstName = String(r[4] ?? '').trim()
+    const lastName = String(r[5] ?? '').trim()
+    if (!firstName && !lastName) continue
+    // sanity: row must have a numeric-looking amount in col 1
+    const col1 = String(r[1] ?? '').trim()
+    if (!col1 || !/^\d+(\.\d+)?$/.test(col1)) continue
+
+    const children: { name: string; age: string; phone: string }[] = []
+    for (let c = 0; c < 4; c++) {
+      const base = 17 + c * 3
+      const name = String(r[base] ?? '').trim()
+      if (name) {
+        children.push({
+          name,
+          age: String(r[base + 1] ?? '').trim(),
+          phone: String(r[base + 2] ?? '').trim(),
+        })
+      }
+    }
+
+    parsed.push({
+      months: String(r[0] ?? '').trim(),
+      first_name: firstName,
+      last_name: lastName,
+      id_number: String(r[6] ?? '').trim(),
+      phone: String(r[7] ?? '').trim(),
+      email: String(r[8] ?? '').trim(),
+      membership_type_raw: String(r[9] ?? '').trim(),
+      spouse_name: String(r[14] ?? '').trim(),
+      spouse_age: String(r[15] ?? '').trim(),
+      spouse_phone: String(r[16] ?? '').trim(),
+      children,
+      notes: String(r[30] ?? '').trim(),
+    })
+  }
+  return parsed
+}
+
 export default function AdminImport() {
   const [rows, setRows] = useState<ParsedFamily[]>([])
   const [results, setResults] = useState<RowResult[]>([])
@@ -74,8 +120,17 @@ export default function AdminImport() {
         break
       }
     }
+    // No Hebrew header row found — fall back to positional layout (15.06.2026.xls style)
     if (headerRowIdx === -1) {
-      toast.error('לא נמצאה שורת כותרות בקובץ')
+      const parsed = parseHeaderlessFormat(data)
+      if (parsed.length === 0) {
+        toast.error('לא נמצאה שורת כותרות וגם לא זוהה פורמט חלופי')
+        return
+      }
+      setRows(parsed)
+      setResults([])
+      setStep('preview')
+      toast.success(`זוהו ${parsed.length} רשומות (פורמט ללא כותרות)`)
       return
     }
 
