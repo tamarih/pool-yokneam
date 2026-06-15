@@ -259,7 +259,7 @@ export default function AdminImport() {
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'כרטיסיה (11 כניסות) נוספה למשפחה קיימת' })
             }
           } else {
-            // sync phones onto active membership
+            // sync phones onto active membership — or add a new membership if none exists
             const { data: ms } = await supabase
               .from('memberships')
               .select('id, phones')
@@ -273,7 +273,16 @@ export default function AdminImport() {
               await supabase.from('memberships').update({ phones: merged }).eq('id', ms.id)
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: `סונכרנו ${uniquePhones.length} טלפונים למנוי קיים` })
             } else {
-              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'skip', message: 'קיים, אין מנוי פעיל לסנכרון' })
+              // person already has e.g. a punch_card — add the new membership alongside it
+              await supabase.from('memberships').insert({
+                family_id: existing.id,
+                type: membershipType,
+                start_date: new Date().toISOString().slice(0, 10),
+                end_date: endDate,
+                active: true,
+                phones: uniquePhones,
+              })
+              res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'מנוי נוסף למשפחה קיימת' })
             }
           }
           continue
