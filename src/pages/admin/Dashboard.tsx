@@ -173,11 +173,90 @@ function downloadCSV(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
+// Parse a CSV (with possible BOM) into array of objects keyed by header row
+function parseCSV(text: string): Record<string, string>[] {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+  const rows: string[][] = []
+  let cur: string[] = []
+  let field = ''
+  let inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++ }
+      else if (c === '"') inQuotes = false
+      else field += c
+    } else {
+      if (c === '"') inQuotes = true
+      else if (c === ',') { cur.push(field); field = '' }
+      else if (c === '\n') { cur.push(field); rows.push(cur); cur = []; field = '' }
+      else if (c === '\r') { /* skip */ }
+      else field += c
+    }
+  }
+  if (field.length > 0 || cur.length > 0) { cur.push(field); rows.push(cur) }
+  if (rows.length === 0) return []
+  const headers = rows[0]
+  return rows.slice(1).filter(r => r.some(c => c.length > 0)).map(r => {
+    const obj: Record<string, string> = {}
+    headers.forEach((h, idx) => { obj[h] = r[idx] ?? '' })
+    return obj
+  })
+}
+
+// Normalize a CSV row for insert: empty string → null, numbers stay strings
+// (Postgres/Supabase will cast). Drop computed/server-managed cols.
+function cleanRow(r: Record<string, string>, drop: string[] = []): any {
+  const out: any = {}
+  for (const [k, v] of Object.entries(r)) {
+    if (drop.includes(k)) continue
+    if (v === '' || v === 'NULL' || v === 'null') out[k] = null
+    else if (v.startsWith('{') || v.startsWith('[')) {
+      try { out[k] = JSON.parse(v) } catch { out[k] = v }
+    }
+    else out[k] = v
+  }
+  return out
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalRange, setModalRange] = useState<EntryRange | null>(null)
   const [exporting, setExporting] = useState(false)
+
+  async function restoreFromCSV(file: File, table: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries') {
+    const text = await file.text()
+    const rows = parseCSV(text)
+    if (rows.length === 0) { toast.error('הקובץ ריק'); return }
+    // remove generated/server-managed cols per table
+    const drop: Record<string, string[]> = {
+      families: ['updated_at'],
+      family_members: [],
+      memberships: [],
+      punch_cards: ['remaining_entries', 'updated_at'],
+      entries: [],
+    }
+    const cleaned = rows.map(r => cleanRow(r, drop[table]))
+    let ok = 0, errors = 0
+    const errorMsgs: string[] = []
+    // upsert in chunks of 100
+    for (let i = 0; i < cleaned.length; i += 100) {
+      const chunk = cleaned.slice(i, i + 100)
+      const { error, count } = await supabase.from(table).upsert(chunk, { onConflict: 'id', count: 'exact' })
+      if (error) {
+        errors += chunk.length
+        if (errorMsgs.length < 3) errorMsgs.push(error.message)
+      } else {
+        ok += count ?? chunk.length
+      }
+    }
+    if (errors > 0) {
+      toast.error(`${table}: ${ok} שוחזרו, ${errors} שגיאות. ${errorMsgs[0] ?? ''}`)
+    } else {
+      toast.success(`${table}: ${ok} רשומות שוחזרו`)
+    }
+  }
 
   async function exportAll() {
     setExporting(true)
@@ -281,7 +360,67 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Restore from CSV */}
+      <RestoreSection onRestore={restoreFromCSV} />
+
       {modalRange && <EntriesModal range={modalRange} onClose={() => setModalRange(null)} />}
+    </div>
+  )
+}
+
+function RestoreSection({ onRestore }: {
+  onRestore: (file: File, table: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries') => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const tables: { key: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries'; label: string }[] = [
+    { key: 'families', label: 'משפחות' },
+    { key: 'family_members', label: 'חברי משפחה' },
+    { key: 'memberships', label: 'מנויים' },
+    { key: 'punch_cards', label: 'כרטיסיות' },
+    { key: 'entries', label: 'כניסות' },
+  ]
+  return (
+    <div style={{
+      marginTop: 24, background: 'white', border: '1px solid #f3f4f6',
+      borderRadius: 16, padding: '20px 24px',
+    }}>
+      <button onClick={() => setOpen(!open)} style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280',
+        fontSize: 14, fontWeight: 600,
+      }}>
+        {open ? '▼' : '◀'} שחזור מקובץ CSV (מתקדם)
+      </button>
+      {open && (
+        <div style={{ marginTop: 16 }}>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16, lineHeight: 1.6 }}>
+            ⚠️ העלי קבצי CSV (אלה שהתקבלו מ"גיבוי CSV"). השחזור עושה upsert — אם רשומה כבר קיימת לפי id היא תעודכן, אחרת תיווצר.<br/>
+            סדר מומלץ: משפחות → חברי משפחה → מנויים → כרטיסיות → כניסות.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+            {tables.map(t => (
+              <label key={t.key} style={{
+                background: '#f9fafb', border: '1.5px dashed #d1d5db',
+                borderRadius: 10, padding: '14px 16px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', gap: 6,
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>📥 {t.label}</span>
+                <span style={{ fontSize: 12, color: '#9ca3af' }}>בחרי קובץ {t.key}_*.csv</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  style={{ display: 'none' }}
+                  onChange={async e => {
+                    const f = e.target.files?.[0]
+                    if (f) await onRestore(f, t.key)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
