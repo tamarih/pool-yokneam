@@ -158,15 +158,21 @@ const [phone, setPhone] = useState('')
 
   async function searchByName(q: string) {
     setNameQuery(q)
-    if (q.trim().length < 2) { setNameResults([]); return }
+    const term = q.trim()
+    if (term.length < 2) { setNameResults([]); return }
     setNameLoading(true)
-    const { data } = await supabase
-      .from('families')
-      .select('id, first_name, family_name, phone')
-      .or(`family_name.ilike.%${q}%,first_name.ilike.%${q}%`)
-      .limit(8)
+    // Two parallel queries: by family_name and by first_name. Merge — family_name first.
+    const [byLast, byFirst] = await Promise.all([
+      supabase.from('families').select('id, first_name, family_name, phone').ilike('family_name', `%${term}%`).limit(15),
+      supabase.from('families').select('id, first_name, family_name, phone').ilike('first_name', `%${term}%`).limit(15),
+    ])
     setNameLoading(false)
-    setNameResults(data ?? [])
+    const seen = new Set<string>()
+    const merged: FamilySearchResult[] = []
+    ;[...(byLast.data ?? []), ...(byFirst.data ?? [])].forEach(f => {
+      if (!seen.has(f.id)) { seen.add(f.id); merged.push(f) }
+    })
+    setNameResults(merged.slice(0, 20))
   }
 
   async function selectFamily(family: FamilySearchResult) {
