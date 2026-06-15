@@ -45,19 +45,38 @@ const [phone, setPhone] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [options, setOptions] = useState<FamilyResult[]>([])
+
   async function lookup() {
     const cleaned = phone.replace(/\D/g, '')
     if (cleaned.length < 9) { setError('מספר טלפון לא תקין'); return }
     setError(null)
     setLoading(true)
 
-    const { data, error: rpcError } = await supabase.rpc('get_family_by_phone', { p_phone: cleaned })
+    const { data, error: rpcError } = await supabase.rpc('get_family_options_by_phone', { p_phone: cleaned })
     setLoading(false)
 
     if (rpcError || !data) { setError('שגיאה בחיפוש'); return }
     if (data.error) { setError(data.error); return }
 
-    setResult(data as FamilyResult)
+    const opts = (data.options ?? []) as FamilyResult[]
+    if (opts.length === 0) { setError('אין מנוי או כרטיסייה משויכים לטלפון זה'); return }
+
+    if (opts.length === 1) {
+      setResult(opts[0])
+      setOptions([])
+      setSelectedMembers([])
+      setPunchCount(1)
+      setStage('result')
+    } else {
+      setOptions(opts)
+      setResult(null)
+    }
+  }
+
+  function chooseOption(opt: FamilyResult) {
+    setResult(opt)
+    setOptions([])
     setSelectedMembers([])
     setPunchCount(1)
     setStage('result')
@@ -321,6 +340,31 @@ const [phone, setPhone] = useState('')
               }}>
                 {loading ? 'מחפש...' : 'חפש מנוי'}
               </button>
+
+              {options.length > 1 && (
+                <div style={{ marginTop: 16, background: '#fffbeb', border: '2px solid #fcd34d', borderRadius: 12, padding: 14 }}>
+                  <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14, marginBottom: 10 }}>
+                    ⚠️ נמצאו {options.length} מנויים בטלפון זה. בחרי מי נכנס:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {options.map((o, i) => {
+                      const name = [o.family.first_name, o.family.family_name].filter(Boolean).join(' ')
+                      const what = o.membership ? '🎫 מנוי' : `🎟 כרטיסייה (${o.punch_card?.remaining_entries ?? 0} נותרו)`
+                      return (
+                        <button key={i} onClick={() => chooseOption(o)} style={{
+                          background: 'white', border: '2px solid #f59e0b', borderRadius: 10,
+                          padding: '12px 14px', cursor: 'pointer', textAlign: 'right',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          fontSize: 15, fontWeight: 600, color: '#111827',
+                        }}>
+                          <span>{name}</span>
+                          <span style={{ color: '#92400e', fontSize: 13 }}>{what}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 

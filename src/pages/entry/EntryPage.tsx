@@ -27,6 +27,7 @@ export default function EntryPage() {
   const [phone, setPhone] = useState('')
   const [stage, setStage] = useState<Stage>('input')
   const [result, setResult] = useState<FamilyResult | null>(null)
+  const [options, setOptions] = useState<FamilyResult[]>([])
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +38,7 @@ export default function EntryPage() {
     setError(null)
     setLoading(true)
 
-    const { data, error: rpcError } = await supabase.rpc('get_family_by_phone', { p_phone: cleaned })
+    const { data, error: rpcError } = await supabase.rpc('get_family_options_by_phone', { p_phone: cleaned })
     setLoading(false)
 
     if (rpcError || !data) {
@@ -49,7 +50,24 @@ export default function EntryPage() {
       return
     }
 
-    setResult(data as FamilyResult)
+    const opts = (data.options ?? []) as FamilyResult[]
+    if (opts.length === 0) {
+      setError('אין מנוי או כרטיסייה משויכים לטלפון זה')
+      return
+    }
+    if (opts.length === 1) {
+      setResult(opts[0])
+      setOptions([])
+      setStage('result')
+    } else {
+      setOptions(opts)
+      setResult(null)
+    }
+  }
+
+  function chooseOption(opt: FamilyResult) {
+    setResult(opt)
+    setOptions([])
     setStage('result')
   }
 
@@ -164,6 +182,31 @@ export default function EntryPage() {
             >
               {loading ? 'מחפש...' : 'כניסה לבריכה'}
             </button>
+
+            {options.length > 1 && (
+              <div style={{ marginTop: 16, background: '#fffbeb', border: '2px solid #fcd34d', borderRadius: 12, padding: 14, textAlign: 'right' }}>
+                <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14, marginBottom: 10 }}>
+                  ⚠️ נמצאו {options.length} מנויים בטלפון זה. בחר/י את שלך:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {options.map((o, i) => {
+                    const name = [o.family.first_name, o.family.family_name].filter(Boolean).join(' ')
+                    const what = o.membership ? '🎫 מנוי' : `🎟 כרטיסייה (${o.punch_card?.remaining_entries ?? 0} נותרו)`
+                    return (
+                      <button key={i} onClick={() => chooseOption(o)} style={{
+                        background: 'white', border: '2px solid #f59e0b', borderRadius: 10,
+                        padding: '12px 14px', cursor: 'pointer', textAlign: 'right',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        fontSize: 15, fontWeight: 600, color: '#111827',
+                      }}>
+                        <span>{name}</span>
+                        <span style={{ color: '#92400e', fontSize: 13 }}>{what}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

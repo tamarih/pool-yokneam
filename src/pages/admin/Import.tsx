@@ -217,31 +217,17 @@ export default function AdminImport() {
       const uniquePhones = Array.from(new Set(allPhones))
 
       try {
-        // Check duplicate by phone first, then by last name
-        const phone = row.phone || null
+        // Dedupe by first_name + last_name (not by phone).
+        // Two people sharing a phone (e.g. רותי דר punch_card, מילי דר membership) are different families.
         let existing = null
-        if (phone) {
+        if (familyName && row.first_name) {
           const { data } = await supabase
             .from('families')
-            .select('id')
-            .eq('phone', phone)
+            .select('id, first_name, family_name')
+            .eq('family_name', familyName)
+            .eq('first_name', row.first_name)
             .maybeSingle()
           existing = data
-        }
-        // If not found by phone, try last name + first name combo
-        if (!existing && familyName) {
-          // try exact last name match first
-          const { data: byLastName } = await supabase
-            .from('families')
-            .select('id, first_name')
-            .eq('family_name', familyName)
-          if (byLastName && byLastName.length === 1) {
-            existing = byLastName[0]
-          } else if (byLastName && byLastName.length > 1) {
-            // multiple families with same last name — match by first name too
-            const match = byLastName.find(f => f.first_name === row.first_name)
-            existing = match ?? null
-          }
         }
 
         if (existing) {
