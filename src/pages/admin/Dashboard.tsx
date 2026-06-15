@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DashboardStats } from '@/types'
-import { Users, CreditCard, Ticket, DoorOpen, TrendingUp, Calendar, PersonStanding, X } from 'lucide-react'
+import { Users, CreditCard, Ticket, DoorOpen, TrendingUp, Calendar, PersonStanding, X, Download } from 'lucide-react'
+import toast from 'react-hot-toast'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import { formatTime } from '@/utils/format'
 
@@ -149,10 +150,57 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
   )
 }
 
+function toCSV(rows: any[]): string {
+  if (rows.length === 0) return ''
+  const headers = Array.from(new Set(rows.flatMap(r => Object.keys(r))))
+  const escape = (v: any) => {
+    if (v === null || v === undefined) return ''
+    const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+    return /["\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return '﻿' + [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
+}
+
+function downloadCSV(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalRange, setModalRange] = useState<EntryRange | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  async function exportAll() {
+    setExporting(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const [families, members, memberships, punchCards, entries] = await Promise.all([
+        supabase.from('families').select('*'),
+        supabase.from('family_members').select('*'),
+        supabase.from('memberships').select('*'),
+        supabase.from('punch_cards').select('*'),
+        supabase.from('entries').select('*'),
+      ])
+      if (families.data) downloadCSV(`families_${today}.csv`, toCSV(families.data))
+      if (members.data) downloadCSV(`members_${today}.csv`, toCSV(members.data))
+      if (memberships.data) downloadCSV(`memberships_${today}.csv`, toCSV(memberships.data))
+      if (punchCards.data) downloadCSV(`punch_cards_${today}.csv`, toCSV(punchCards.data))
+      if (entries.data) downloadCSV(`entries_${today}.csv`, toCSV(entries.data))
+      toast.success('ייצוא הסתיים — בדקי בתיקיית ההורדות')
+    } catch (e: any) {
+      toast.error('שגיאה בייצוא: ' + (e?.message ?? 'לא ידוע'))
+    }
+    setExporting(false)
+  }
 
   useEffect(() => {
     async function load() {
@@ -179,9 +227,25 @@ export default function AdminDashboard() {
 
   return (
     <div style={{ padding: '28px 28px', direction: 'rtl' }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827' }}>דשבורד</h1>
-        <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>סטטיסטיקות בזמן אמת - מתעדכן כל דקה</p>
+      <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827' }}>דשבורד</h1>
+          <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>סטטיסטיקות בזמן אמת - מתעדכן כל דקה</p>
+        </div>
+        <button
+          onClick={exportAll}
+          disabled={exporting}
+          title="הורדת CSV של כל הנתונים — מומלץ לפני פעולות גדולות"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: exporting ? '#e5e7eb' : '#f3f4f6',
+            color: '#374151', border: '1px solid #e5e7eb',
+            borderRadius: 10, padding: '10px 16px',
+            fontSize: 14, fontWeight: 600, cursor: exporting ? 'not-allowed' : 'pointer',
+          }}>
+          <Download size={16} />
+          {exporting ? 'מייצא...' : 'גיבוי CSV של כל הנתונים'}
+        </button>
       </div>
 
       <div style={{
