@@ -28,6 +28,7 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     address: family?.address ?? '',
     membership_type: family?.membership_type ?? 'seasonal',
     membership_label: '',
+    membership_key: 'individual',
     start_date: family?.start_date ?? new Date().toISOString().slice(0, 10),
     end_date: family?.end_date ?? '2026-10-31',
     status: family?.status ?? 'active',
@@ -152,9 +153,10 @@ export default function FamilyFormModal({ onClose, family }: Props) {
           {!isEdit && <div>
             <label style={labelStyle}>סוג מנוי *</label>
             <select
-              value={form.membership_label || form.membership_type}
+              value={form.membership_key}
               onChange={e => {
                 const v = e.target.value
+                set('membership_key', v)
                 if (v === 'punch_card_11') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה 11 כניסות'); set('punch_entries', '11') }
                 else if (v === 'punch_card') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה') }
                 else if (v === 'individual') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד - 500 ₪') }
