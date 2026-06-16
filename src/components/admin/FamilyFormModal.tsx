@@ -161,6 +161,8 @@ export default function FamilyFormModal({ onClose, family }: Props) {
                 else if (v === 'couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי - 1000 ₪') }
                 else if (v === 'family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי משפחתי - 1000 ₪') }
                 else if (v === 'pensioner') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי פנסיונר') }
+                else if (v === 'grandparent_single') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים - 1500 ₪') }
+                else if (v === 'grandparent_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים - 2000 ₪') }
                 else if (v === 'annual') { set('membership_type', 'annual'); set('membership_label', 'מנוי שנתי') }
               }}
               style={selectStyle} required>
@@ -168,6 +170,8 @@ export default function FamilyFormModal({ onClose, family }: Props) {
               <option value="couple">מנוי זוגי - 1000 ₪</option>
               <option value="family">מנוי משפחתי - 1000 ₪</option>
               <option value="pensioner">מנוי פנסיונר</option>
+              <option value="grandparent_single">מנוי יחיד סבא/סבתא + נכדים - 1500 ₪</option>
+              <option value="grandparent_couple">מנוי זוגי סבא וסבתא + נכדים - 2000 ₪</option>
               <option value="annual">מנוי שנתי</option>
               <option value="punch_card_11">כרטיסייה 11 כניסות</option>
               <option value="punch_card">כרטיסייה (אחר)</option>
