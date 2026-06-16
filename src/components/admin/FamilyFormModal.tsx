@@ -149,7 +149,7 @@ export default function FamilyFormModal({ onClose, family }: Props) {
           <Field label="טלפון" value={form.phone} onChange={v => set('phone', v)} type="tel" />
           <Field label="כתובת" value={form.address} onChange={v => set('address', v)} />
 
-          <div>
+          {!isEdit && <div>
             <label style={labelStyle}>סוג מנוי *</label>
             <select
               value={form.membership_label || form.membership_type}
@@ -200,9 +200,9 @@ export default function FamilyFormModal({ onClose, family }: Props) {
               <option value="punch_card_11">כרטיסייה 11 כניסות - 500 ₪</option>
               <option value="punch_card">כרטיסייה (אחר)</option>
             </select>
-          </div>
+          </div>}
 
-          {form.membership_type === 'punch_card' && (
+          {!isEdit && form.membership_type === 'punch_card' && (
             <Field label="מספר כניסות" value={form.punch_entries} onChange={v => set('punch_entries', v)} type="number" />
           )}
 
