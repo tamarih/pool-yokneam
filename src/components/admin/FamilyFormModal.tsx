@@ -158,22 +158,46 @@ export default function FamilyFormModal({ onClose, family }: Props) {
                 if (v === 'punch_card_11') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה 11 כניסות'); set('punch_entries', '11') }
                 else if (v === 'punch_card') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה') }
                 else if (v === 'individual') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד - 500 ₪') }
+                else if (v === 'individual_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 1 - 1000 ₪') }
+                else if (v === 'individual_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 2 - 1300 ₪') }
+                else if (v === 'individual_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 3 - 1500 ₪') }
+                else if (v === 'individual_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 4 - 1600 ₪') }
                 else if (v === 'couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי - 1000 ₪') }
+                else if (v === 'couple_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 1 - 1500 ₪') }
+                else if (v === 'couple_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 2 - 1800 ₪') }
+                else if (v === 'couple_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 3 - 2000 ₪') }
+                else if (v === 'couple_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 4 - 2100 ₪') }
                 else if (v === 'family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי משפחתי - 1000 ₪') }
                 else if (v === 'pensioner') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי פנסיונר') }
-                else if (v === 'grandparent_single') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים - 1500 ₪') }
-                else if (v === 'grandparent_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים - 2000 ₪') }
+                else if (v === 'grandparent_single') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים לכל השבוע - 1500 ₪') }
+                else if (v === 'grandparent_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים לכל השבוע - 2000 ₪') }
+                else if (v === 'grandparent_single_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים בלבד - 1200 ₪') }
+                else if (v === 'grandparent_couple_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים בלבד - 1700 ₪') }
+                else if (v === 'tzimer_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר זוגי - 800 ₪') }
+                else if (v === 'tzimer_family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר משפחתי - 1500 ₪') }
                 else if (v === 'annual') { set('membership_type', 'annual'); set('membership_label', 'מנוי שנתי') }
               }}
               style={selectStyle} required>
               <option value="individual">מנוי יחיד - 500 ₪</option>
+              <option value="individual_plus1">מנוי יחיד אב/אם פלוס 1 - 1000 ₪</option>
+              <option value="individual_plus2">מנוי יחיד אב/אם פלוס 2 - 1300 ₪</option>
+              <option value="individual_plus3">מנוי יחיד אב/אם פלוס 3 - 1500 ₪</option>
+              <option value="individual_plus4">מנוי יחיד אב/אם פלוס 4 - 1600 ₪</option>
               <option value="couple">מנוי זוגי - 1000 ₪</option>
+              <option value="couple_plus1">מנוי זוגי פלוס 1 - 1500 ₪</option>
+              <option value="couple_plus2">מנוי זוגי פלוס 2 - 1800 ₪</option>
+              <option value="couple_plus3">מנוי זוגי פלוס 3 - 2000 ₪</option>
+              <option value="couple_plus4">מנוי זוגי פלוס 4 - 2100 ₪</option>
               <option value="family">מנוי משפחתי - 1000 ₪</option>
               <option value="pensioner">מנוי פנסיונר</option>
-              <option value="grandparent_single">מנוי יחיד סבא/סבתא + נכדים - 1500 ₪</option>
-              <option value="grandparent_couple">מנוי זוגי סבא וסבתא + נכדים - 2000 ₪</option>
+              <option value="grandparent_single">מנוי יחיד סבא/סבתא + נכדים לכל השבוע - 1500 ₪</option>
+              <option value="grandparent_couple">מנוי זוגי סבא וסבתא + נכדים לכל השבוע - 2000 ₪</option>
+              <option value="grandparent_single_only">מנוי יחיד סבא/סבתא + נכדים בלבד - 1200 ₪</option>
+              <option value="grandparent_couple_only">מנוי זוגי סבא וסבתא + נכדים בלבד - 1700 ₪</option>
+              <option value="tzimer_couple">מנוי בריכה לציימר זוגי - 800 ₪</option>
+              <option value="tzimer_family">מנוי בריכה לציימר משפחתי - 1500 ₪</option>
               <option value="annual">מנוי שנתי</option>
-              <option value="punch_card_11">כרטיסייה 11 כניסות</option>
+              <option value="punch_card_11">כרטיסייה 11 כניסות - 500 ₪</option>
               <option value="punch_card">כרטיסייה (אחר)</option>
             </select>
           </div>
