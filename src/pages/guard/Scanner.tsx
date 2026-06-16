@@ -214,12 +214,16 @@ const [phone, setPhone] = useState('')
 
     setConfirming(true)
     const entryType = result.membership ? 'membership' : 'punch_card'
+    const memberNames = selectedMembers.length > 0 && result.members
+      ? selectedMembers.map(i => `${result.members![i].first_name} ${result.members![i].last_name}`.trim())
+      : []
     const { data, error: rpcError } = await supabase.rpc('record_entry', {
       p_family_id: result.family.id,
       p_people_count: count,
       p_entry_type: entryType,
       p_punch_card_id: entryType === 'punch_card' ? result.punch_card?.id ?? null : null,
       p_guard_user_id: user?.id ?? null,
+      p_member_names: memberNames,
     })
     setConfirming(false)
 

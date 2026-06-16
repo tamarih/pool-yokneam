@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { DashboardStats } from '@/types'
 import { Users, CreditCard, Ticket, DoorOpen, TrendingUp, Calendar, PersonStanding, X, Download } from 'lucide-react'
@@ -14,6 +15,8 @@ interface EntryRow {
   entry_time: string
   entry_date: string
   created_at: string
+  member_names: string[] | null
+  family_name_snapshot: string | null
   family: { family_name: string; first_name: string | null; family_number: string | null } | null
 }
 
@@ -45,6 +48,7 @@ function StatCard({ icon: Icon, label, value, color, bg, onClick }: {
 function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => void }) {
   const [rows, setRows] = useState<EntryRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -52,7 +56,7 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
       const now = new Date()
       let query = supabase
         .from('entries')
-        .select('id, people_count, entry_time, entry_date, created_at, family:families(family_name, first_name, family_number)')
+        .select('id, people_count, entry_time, entry_date, created_at, member_names, family_name_snapshot, family:families(family_name, first_name, family_number)')
         .eq('status', 'valid')
         .order('created_at', { ascending: false })
 
@@ -130,15 +134,46 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
               </thead>
               <tbody>
                 {rows.map(r => {
-                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ') || '—'
+                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ')
+                    || r.family_name_snapshot
+                    || '—'
+                  const isExpanded = expandedRow === r.id
+                  const hasNames = (r.member_names?.length ?? 0) > 0
                   return (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #f9fafb' }}>
-                      <td style={{ padding: '10px 16px', color: '#6b7280', fontSize: 13 }}>{r.entry_date}</td>
-                      <td style={{ padding: '10px 16px', color: '#374151' }}>{formatTime(r.entry_time)}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 600 }}>{label}</td>
-                      <td style={{ padding: '10px 16px', color: '#9ca3af', fontSize: 13 }}>{r.family?.family_number ?? '—'}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 700, color: '#1d4ed8' }}>{r.people_count}</td>
-                    </tr>
+                    <React.Fragment key={r.id}>
+                      <tr
+                        onClick={() => hasNames && setExpandedRow(isExpanded ? null : r.id)}
+                        style={{
+                          borderBottom: isExpanded ? 'none' : '1px solid #f9fafb',
+                          cursor: hasNames ? 'pointer' : 'default',
+                          background: isExpanded ? '#f9fafb' : 'transparent',
+                        }}>
+                        <td style={{ padding: '10px 16px', color: '#6b7280', fontSize: 13 }}>{r.entry_date}</td>
+                        <td style={{ padding: '10px 16px', color: '#374151' }}>{formatTime(r.entry_time)}</td>
+                        <td style={{ padding: '10px 16px', fontWeight: 600 }}>
+                          {hasNames && <span style={{ color: '#9ca3af', marginLeft: 6 }}>{isExpanded ? '▼' : '◀'}</span>}
+                          {label}
+                        </td>
+                        <td style={{ padding: '10px 16px', color: '#9ca3af', fontSize: 13 }}>{r.family?.family_number ?? '—'}</td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#1d4ed8' }}>{r.people_count}</td>
+                      </tr>
+                      {isExpanded && hasNames && (
+                        <tr style={{ borderBottom: '1px solid #f9fafb', background: '#f9fafb' }}>
+                          <td colSpan={5} style={{ padding: '4px 16px 14px 16px' }}>
+                            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>נכנסו:</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {r.member_names!.map((n, i) => (
+                                <span key={i} style={{
+                                  background: '#dbeafe', color: '#1e40af',
+                                  borderRadius: 8, padding: '4px 10px',
+                                  fontSize: 13, fontWeight: 600,
+                                }}>{n}</span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
