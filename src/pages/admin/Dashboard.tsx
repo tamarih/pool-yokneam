@@ -392,10 +392,68 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      <HourlyChart />
+
       {/* Restore from CSV */}
       <RestoreSection onRestore={restoreFromCSV} />
 
       {modalRange && <EntriesModal range={modalRange} onClose={() => setModalRange(null)} />}
+    </div>
+  )
+}
+
+function HourlyChart() {
+  const [hours, setHours] = useState<number[]>(Array(24).fill(0))
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('entries')
+        .select('entry_time, people_count')
+        .eq('entry_date', date)
+        .eq('status', 'valid')
+      if (!data) return
+      const buckets = Array(24).fill(0)
+      data.forEach(r => {
+        if (!r.entry_time) return
+        const d = new Date(`${date}T${r.entry_time}Z`)
+        const ilHour = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours()
+        buckets[ilHour] += r.people_count
+      })
+      setHours(buckets)
+    }
+    load()
+  }, [date])
+
+  const max = Math.max(...hours, 1)
+  const poolHours = Array.from({ length: 15 }, (_, i) => i + 7) // 7:00–21:00
+
+  return (
+    <div style={{ background: 'white', borderRadius: 16, padding: '20px 24px', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', marginTop: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <h3 style={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>כניסות לפי שעה</h3>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ padding: '6px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none' }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120 }}>
+        {poolHours.map(h => {
+          const val = hours[h]
+          const pct = val / max
+          return (
+            <div key={h} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+              {val > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8' }}>{val}</div>}
+              <div style={{
+                width: '100%', borderRadius: '4px 4px 0 0',
+                height: `${Math.max(pct * 90, val > 0 ? 8 : 0)}px`,
+                background: val > 0 ? 'linear-gradient(180deg, #0ea5e9, #1d4ed8)' : '#f3f4f6',
+                transition: 'height 0.3s',
+              }} title={`${h}:00 — ${val} אנשים`} />
+              <div style={{ fontSize: 10, color: '#9ca3af', whiteSpace: 'nowrap' }}>{h}</div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
