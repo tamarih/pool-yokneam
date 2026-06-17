@@ -16,7 +16,6 @@ interface EntryRow {
   entry_date: string
   created_at: string
   member_names: string[] | null
-  family_name_snapshot: string | null
   family: { family_name: string; first_name: string | null; family_number: string | null } | null
 }
 
@@ -56,7 +55,7 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
       const now = new Date()
       let query = supabase
         .from('entries')
-        .select('id, people_count, entry_time, entry_date, created_at, member_names, family_name_snapshot, family:families(family_name, first_name, family_number)')
+        .select('id, people_count, entry_time, entry_date, created_at, member_names, family:families(family_name, first_name, family_number)')
         .eq('status', 'valid')
         .order('created_at', { ascending: false })
 
@@ -134,9 +133,7 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
               </thead>
               <tbody>
                 {rows.map(r => {
-                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ')
-                    || r.family_name_snapshot
-                    || '—'
+                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ') || '—'
                   const isExpanded = expandedRow === r.id
                   const hasNames = (r.member_names?.length ?? 0) > 0
                   return (
