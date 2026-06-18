@@ -287,7 +287,7 @@ export default function AdminImport() {
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: `סונכרנו ${uniquePhones.length} טלפונים למנוי קיים` })
             } else {
               // person already has e.g. a punch_card — add the new membership alongside it
-              await supabase.from('memberships').insert({
+              const { error: addMsErr } = await supabase.from('memberships').insert({
                 family_id: existing.id,
                 type: membershipType,
                 start_date: new Date().toISOString().slice(0, 10),
@@ -296,6 +296,7 @@ export default function AdminImport() {
                 phones: uniquePhones,
                 grandchildren_count: row.grandchildren_count ?? null,
               })
+              if (addMsErr) throw new Error('מנוי למשפחה קיימת נכשל: ' + addMsErr.message)
               res.push({ family_name: `${row.first_name} ${familyName}`, status: 'ok', message: 'מנוי נוסף למשפחה קיימת' })
             }
           }
@@ -323,9 +324,9 @@ export default function AdminImport() {
         if (famErr) throw new Error(famErr.message)
         const familyId = fam.id
 
-        // Create membership or punch card with all collected phones
+        // Create membership or punch card with all collected phones — REPORT failures
         if (membershipType === 'punch_card') {
-          await supabase.from('punch_cards').insert({
+          const { error: pcErr } = await supabase.from('punch_cards').insert({
             family_id: familyId,
             purchased_entries: punchEntries,
             used_entries: 0,
@@ -334,8 +335,9 @@ export default function AdminImport() {
             phones: uniquePhones,
             owner_name: `${row.first_name} ${row.last_name}`.trim() || null,
           })
+          if (pcErr) throw new Error('כרטיסייה נכשלה: ' + pcErr.message)
         } else if (endDate) {
-          await supabase.from('memberships').insert({
+          const { error: msErr } = await supabase.from('memberships').insert({
             family_id: familyId,
             type: membershipType,
             type_label: row.membership_type_raw || null,
@@ -345,6 +347,7 @@ export default function AdminImport() {
             phones: uniquePhones,
             grandchildren_count: row.grandchildren_count ?? null,
           })
+          if (msErr) throw new Error('מנוי נכשל: ' + msErr.message)
         }
 
         // Members
