@@ -64,6 +64,21 @@ export default function AdminFamilyDetail() {
     else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); setAddPunchPhone(''); load() }
   }
 
+  async function addMembership() {
+    if (!family) return
+    const today = new Date().toISOString().slice(0, 10)
+    const seasonEnd = new Date(new Date().getFullYear(), 9, 31).toISOString().slice(0, 10)
+    const { error } = await supabase.from('memberships').insert({
+      family_id: family.id,
+      type: family.membership_type ?? 'seasonal',
+      start_date: today,
+      end_date: family.end_date ?? seasonEnd,
+      active: true,
+    })
+    if (error) toast.error('שגיאה: ' + error.message)
+    else { toast.success('מנוי נוצר'); load() }
+  }
+
   async function updateMembershipPhones(membershipId: string, phones: string[]) {
     const { error } = await supabase.from('memberships').update({ phones }).eq('id', membershipId)
     if (error) toast.error('שגיאה בעדכון')
@@ -174,7 +189,12 @@ export default function AdminFamilyDetail() {
       {/* Memberships tab */}
       {tab === 'memberships' && (
         <div style={cardStyle}>
-          <h3 style={{ fontWeight: 700, marginBottom: 16 }}>היסטוריית מנויים</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ fontWeight: 700 }}>היסטוריית מנויים</h3>
+            <button onClick={addMembership} style={btnStyle('#16a34a', '#dcfce7')}>
+              <Plus size={15} /> צור מנוי
+            </button>
+          </div>
           {memberships.length === 0 ? <Empty /> : memberships.map(m => {
             const sc2 = statusColor(m.active ? 'active' : 'inactive')
             return (
