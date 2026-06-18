@@ -349,19 +349,36 @@ export default function AdminImport() {
 
         // Members
         const members: { family_id: string; first_name: string; last_name: string; birth_date: null }[] = []
-
         const lastName = row.last_name || familyName
+
+        // Split a full name into first/last — avoiding "תום אטיאס אטיאס" when full name is given
+        function splitName(fullName: string): { first: string; last: string } {
+          const clean = (fullName ?? '').trim()
+          if (!clean) return { first: '', last: lastName }
+          // Already ends with family's last_name? strip it
+          if (lastName && clean.endsWith(' ' + lastName)) {
+            return { first: clean.slice(0, -lastName.length - 1).trim(), last: lastName }
+          }
+          // Multi-word name: split, last word becomes last_name
+          const parts = clean.split(/\s+/)
+          if (parts.length > 1) return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] }
+          // Single word — use family's last_name
+          return { first: clean, last: lastName }
+        }
+
         // Primary member
         if (row.first_name) {
           members.push({ family_id: familyId, first_name: row.first_name, last_name: lastName, birth_date: null })
         }
         // Spouse
         if (row.spouse_name) {
-          members.push({ family_id: familyId, first_name: row.spouse_name, last_name: lastName, birth_date: null })
+          const s = splitName(row.spouse_name)
+          if (s.first) members.push({ family_id: familyId, first_name: s.first, last_name: s.last, birth_date: null })
         }
         // Children
         for (const child of row.children) {
-          members.push({ family_id: familyId, first_name: child.name, last_name: lastName, birth_date: null })
+          const c = splitName(child.name)
+          if (c.first) members.push({ family_id: familyId, first_name: c.first, last_name: c.last, birth_date: null })
         }
 
         if (members.length > 0) {
