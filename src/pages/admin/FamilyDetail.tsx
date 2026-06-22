@@ -64,6 +64,31 @@ export default function AdminFamilyDetail() {
     else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); setAddPunchPhone(''); load() }
   }
 
+  const [retroFor, setRetroFor] = useState<string | null>(null) // punch_card id
+  const [retroDate, setRetroDate] = useState(new Date().toISOString().slice(0, 10))
+  const [retroTime, setRetroTime] = useState('12:00')
+  const [retroCount, setRetroCount] = useState(1)
+
+  async function addRetroactiveEntry(pcId: string, pcRemaining: number) {
+    if (retroCount < 1) return toast.error('מספר אנשים לא תקין')
+    if (retroCount > pcRemaining) return toast.error(`נותרו רק ${pcRemaining} כניסות`)
+    const { data, error } = await supabase.rpc('record_entry', {
+      p_family_id: id,
+      p_people_count: retroCount,
+      p_entry_type: 'punch_card',
+      p_punch_card_id: pcId,
+      p_entry_date: retroDate,
+      p_entry_time: retroTime,
+      p_notes: 'נוסף ידנית ע״י אדמין',
+    })
+    if (error || data?.error) toast.error(data?.error ?? 'שגיאה בהוספה')
+    else {
+      toast.success(`נוסף ${retroCount} כניסות ב-${retroDate}`)
+      setRetroFor(null); setRetroCount(1)
+      load()
+    }
+  }
+
   async function addMembership() {
     if (!family) return
     const today = new Date().toISOString().slice(0, 10)
@@ -258,6 +283,48 @@ export default function AdminFamilyDetail() {
                     familyPhone={family.phone}
                     onSave={(arr) => updatePunchCardPhones(pc.id, arr)}
                   />
+                </div>
+
+                {/* Retroactive entry */}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f3f4f6' }}>
+                  {retroFor === pc.id ? (
+                    <div style={{ background: '#fefce8', border: '1.5px solid #fde047', borderRadius: 10, padding: 14 }}>
+                      <div style={{ fontWeight: 700, color: '#854d0e', fontSize: 14, marginBottom: 10 }}>
+                        ➕ הוסף כניסה רטרואקטיבית
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>תאריך</label>
+                          <input type="date" value={retroDate} onChange={e => setRetroDate(e.target.value)}
+                            style={{ padding: '8px 10px', border: '1.5px solid #fde047', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>שעה</label>
+                          <input type="time" value={retroTime} onChange={e => setRetroTime(e.target.value)}
+                            style={{ padding: '8px 10px', border: '1.5px solid #fde047', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>כניסות</label>
+                          <input type="number" min={1} max={pc.remaining_entries} value={retroCount}
+                            onChange={e => setRetroCount(+e.target.value)}
+                            style={{ width: 80, padding: '8px 10px', border: '1.5px solid #fde047', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                        </div>
+                        <button onClick={() => addRetroactiveEntry(pc.id, pc.remaining_entries)}
+                          style={btnStyle('#854d0e', '#fde047')}>
+                          הוסף
+                        </button>
+                        <button onClick={() => { setRetroFor(null); setRetroCount(1) }}
+                          style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13, color: '#6b7280' }}>
+                          ביטול
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setRetroFor(pc.id); setRetroDate(new Date().toISOString().slice(0, 10)); setRetroTime('12:00'); setRetroCount(1) }}
+                      style={btnStyle('#854d0e', '#fef3c7')}>
+                      <Plus size={14} /> הוסף כניסה רטרואקטיבית
+                    </button>
+                  )}
                 </div>
               </div>
             )
