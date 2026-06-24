@@ -190,28 +190,6 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
   )
 }
 
-function toCSV(rows: any[]): string {
-  if (rows.length === 0) return ''
-  const headers = Array.from(new Set(rows.flatMap(r => Object.keys(r))))
-  const escape = (v: any) => {
-    if (v === null || v === undefined) return ''
-    const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
-    return /["\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  return '﻿' + [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
-}
-
-function downloadCSV(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
 
 async function fetchAllRows(table: BackupTable): Promise<any[]> {
   const pageSize = 1000
@@ -329,11 +307,19 @@ export default function AdminDashboard() {
         fetchAllRows('punch_cards'),
         fetchAllRows('entries'),
       ])
-      downloadCSV(`families_${today}.csv`, toCSV(families))
-      downloadCSV(`members_${today}.csv`, toCSV(members))
-      downloadCSV(`memberships_${today}.csv`, toCSV(memberships))
-      downloadCSV(`punch_cards_${today}.csv`, toCSV(punchCards))
-      downloadCSV(`entries_${today}.csv`, toCSV(entries))
+      // Single .xlsx with one sheet per table — Excel reads Hebrew correctly without encoding tricks
+      const xlsx = await import('xlsx')
+      const wb = xlsx.utils.book_new()
+      const addSheet = (name: string, rows: any[]) => {
+        const ws = xlsx.utils.json_to_sheet(rows.length > 0 ? rows : [{}])
+        xlsx.utils.book_append_sheet(wb, ws, name)
+      }
+      addSheet('families', families)
+      addSheet('family_members', members)
+      addSheet('memberships', memberships)
+      addSheet('punch_cards', punchCards)
+      addSheet('entries', entries)
+      xlsx.writeFile(wb, `pool_backup_${today}.xlsx`)
       toast.success('ייצוא הסתיים — בדקי בתיקיית ההורדות')
     } catch (e: any) {
       toast.error('שגיאה בייצוא: ' + (e?.message ?? 'לא ידוע'))
