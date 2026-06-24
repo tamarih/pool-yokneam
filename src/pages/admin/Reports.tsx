@@ -12,6 +12,14 @@ interface ReportRow {
   entry_type: string
 }
 
+function entryFamilyName(entry: {
+  family_name_snapshot?: string | null
+  family?: { first_name?: string | null; family_name?: string | null } | null
+}): string {
+  const liveName = [entry.family?.first_name, entry.family?.family_name].filter(Boolean).join(' ').trim()
+  return liveName || entry.family_name_snapshot || 'משפחה שנמחקה'
+}
+
 export default function AdminReports() {
   const [rows, setRows] = useState<ReportRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -33,7 +41,7 @@ export default function AdminReports() {
 
     const { data } = await supabase
       .from('entries')
-      .select('entry_date, entry_type, people_count, family:families(family_name, family_number)')
+      .select('entry_date, entry_type, people_count, family_name_snapshot, family:families(first_name, family_name, family_number)')
       .gte('entry_date', from)
       .lte('entry_date', to)
       .eq('status', 'valid')
@@ -41,7 +49,7 @@ export default function AdminReports() {
 
     setRows((data ?? []).map((r: any) => ({
       entry_date: r.entry_date,
-      family_name: r.family?.family_name ?? '',
+      family_name: entryFamilyName(r),
       family_number: r.family?.family_number ?? '',
       people_count: r.people_count,
       entry_type: r.entry_type,
@@ -52,9 +60,13 @@ export default function AdminReports() {
   function exportCSV() {
     if (rows.length === 0) return toast.error('אין נתונים לייצוא')
     const headers = ['תאריך', 'משפחה', 'מספר', 'כניסות', 'סוג']
+    const escape = (v: unknown) => {
+      const s = v == null ? '' : String(v)
+      return /["\n,]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
     const csv = [
       headers.join(','),
-      ...rows.map(r => [formatDate(r.entry_date), r.family_name, r.family_number, r.people_count, entryTypeLabel(r.entry_type)].join(','))
+      ...rows.map(r => [formatDate(r.entry_date), r.family_name, r.family_number, r.people_count, entryTypeLabel(r.entry_type)].map(escape).join(','))
     ].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

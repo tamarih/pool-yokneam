@@ -161,16 +161,28 @@ const [phone, setPhone] = useState('')
     const term = q.trim()
     if (term.length < 2) { setNameResults([]); return }
     setNameLoading(true)
-    // Two parallel queries: by family_name and by first_name. Merge — family_name first.
-    const [byLast, byFirst] = await Promise.all([
+    // Search by: family_name, family.first_name, family_members.first_name, family_members.last_name
+    const [byLast, byFirst, byMemberFirst, byMemberLast] = await Promise.all([
       supabase.from('families').select('id, first_name, family_name, phone').ilike('family_name', `%${term}%`).limit(15),
       supabase.from('families').select('id, first_name, family_name, phone').ilike('first_name', `%${term}%`).limit(15),
+      supabase.from('family_members')
+        .select('family:families!inner(id, first_name, family_name, phone)')
+        .ilike('first_name', `%${term}%`).limit(15),
+      supabase.from('family_members')
+        .select('family:families!inner(id, first_name, family_name, phone)')
+        .ilike('last_name', `%${term}%`).limit(15),
     ])
     setNameLoading(false)
     const seen = new Set<string>()
     const merged: FamilySearchResult[] = []
+    // Family-level matches first (most relevant)
     ;[...(byLast.data ?? []), ...(byFirst.data ?? [])].forEach(f => {
       if (!seen.has(f.id)) { seen.add(f.id); merged.push(f) }
+    })
+    // Then member-level matches
+    ;[...(byMemberFirst.data ?? []), ...(byMemberLast.data ?? [])].forEach((row: any) => {
+      const f = Array.isArray(row.family) ? row.family[0] : row.family
+      if (f && !seen.has(f.id)) { seen.add(f.id); merged.push(f) }
     })
     setNameResults(merged.slice(0, 20))
   }

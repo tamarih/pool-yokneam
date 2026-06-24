@@ -1,3 +1,6 @@
+-- UNSAFE / DEPRECATED: this script deletes public.entries and destroys entry history.
+-- Use supabase/reset_data_safe.sql for year reset/import flows that must preserve entries.
+-- Do not run this script unless you intentionally want to erase all entry history.
 -- ⚠️  מוחק את כל הנתונים של משפחות, מנויים, כרטיסיות וכניסות.
 -- ⚠️  לא נוגע בחשבונות משתמשים (admin / guard).
 -- להריץ ב-Supabase SQL Editor → Run.

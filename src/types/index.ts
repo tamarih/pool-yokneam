@@ -79,7 +79,8 @@ export interface PunchCard {
 
 export interface Entry {
   id: string
-  family_id: string
+  family_id: string | null
+  family_name_snapshot: string | null
   entry_date: string
   entry_time: string
   people_count: number
@@ -88,6 +89,7 @@ export interface Entry {
   punch_card_id: string | null
   status: EntryStatus
   notes: string | null
+  member_names: string[]
   created_at: string
   family?: Family
   guard?: Profile

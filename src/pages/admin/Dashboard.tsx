@@ -16,7 +16,15 @@ interface EntryRow {
   entry_date: string
   created_at: string
   member_names: string[] | null
+  family_name_snapshot: string | null
   family: { family_name: string; first_name: string | null; family_number: string | null } | null
+}
+
+type BackupTable = 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries'
+
+function entryFamilyName(entry: Pick<EntryRow, 'family' | 'family_name_snapshot'>): string {
+  const liveName = [entry.family?.first_name, entry.family?.family_name].filter(Boolean).join(' ').trim()
+  return liveName || entry.family_name_snapshot || 'משפחה שנמחקה'
 }
 
 function StatCard({ icon: Icon, label, value, color, bg, onClick }: {
@@ -55,7 +63,7 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
       const now = new Date()
       let query = supabase
         .from('entries')
-        .select('id, people_count, entry_time, entry_date, created_at, member_names, family:families(family_name, first_name, family_number)')
+        .select('id, people_count, entry_time, entry_date, created_at, member_names, family_name_snapshot, family:families(family_name, first_name, family_number)')
         .eq('status', 'valid')
         .order('created_at', { ascending: false })
 
@@ -133,7 +141,7 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
               </thead>
               <tbody>
                 {rows.map(r => {
-                  const label = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ') || '—'
+                  const label = entryFamilyName(r)
                   const isExpanded = expandedRow === r.id
                   const hasNames = (r.member_names?.length ?? 0) > 0
                   return (
@@ -205,6 +213,26 @@ function downloadCSV(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
+async function fetchAllRows(table: BackupTable): Promise<any[]> {
+  const pageSize = 1000
+  const rows: any[] = []
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < pageSize) break
+  }
+
+  return rows
+}
+
 // Parse a CSV (with possible BOM) into array of objects keyed by header row
 function parseCSV(text: string): Record<string, string>[] {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
@@ -257,7 +285,7 @@ export default function AdminDashboard() {
   const [modalRange, setModalRange] = useState<EntryRange | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  async function restoreFromCSV(file: File, table: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries') {
+  async function restoreFromCSV(file: File, table: BackupTable) {
     const text = await file.text()
     const rows = parseCSV(text)
     if (rows.length === 0) { toast.error('הקובץ ריק'); return }
@@ -295,17 +323,17 @@ export default function AdminDashboard() {
     try {
       const today = new Date().toISOString().slice(0, 10)
       const [families, members, memberships, punchCards, entries] = await Promise.all([
-        supabase.from('families').select('*'),
-        supabase.from('family_members').select('*'),
-        supabase.from('memberships').select('*'),
-        supabase.from('punch_cards').select('*'),
-        supabase.from('entries').select('*'),
+        fetchAllRows('families'),
+        fetchAllRows('family_members'),
+        fetchAllRows('memberships'),
+        fetchAllRows('punch_cards'),
+        fetchAllRows('entries'),
       ])
-      if (families.data) downloadCSV(`families_${today}.csv`, toCSV(families.data))
-      if (members.data) downloadCSV(`members_${today}.csv`, toCSV(members.data))
-      if (memberships.data) downloadCSV(`memberships_${today}.csv`, toCSV(memberships.data))
-      if (punchCards.data) downloadCSV(`punch_cards_${today}.csv`, toCSV(punchCards.data))
-      if (entries.data) downloadCSV(`entries_${today}.csv`, toCSV(entries.data))
+      downloadCSV(`families_${today}.csv`, toCSV(families))
+      downloadCSV(`members_${today}.csv`, toCSV(members))
+      downloadCSV(`memberships_${today}.csv`, toCSV(memberships))
+      downloadCSV(`punch_cards_${today}.csv`, toCSV(punchCards))
+      downloadCSV(`entries_${today}.csv`, toCSV(entries))
       toast.success('ייצוא הסתיים — בדקי בתיקיית ההורדות')
     } catch (e: any) {
       toast.error('שגיאה בייצוא: ' + (e?.message ?? 'לא ידוע'))
@@ -459,10 +487,10 @@ function HourlyChart() {
 }
 
 function RestoreSection({ onRestore }: {
-  onRestore: (file: File, table: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries') => Promise<void>
+  onRestore: (file: File, table: BackupTable) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
-  const tables: { key: 'families' | 'family_members' | 'memberships' | 'punch_cards' | 'entries'; label: string }[] = [
+  const tables: { key: BackupTable; label: string }[] = [
     { key: 'families', label: 'משפחות' },
     { key: 'family_members', label: 'חברי משפחה' },
     { key: 'memberships', label: 'מנויים' },

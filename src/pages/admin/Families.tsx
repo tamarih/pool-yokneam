@@ -7,6 +7,26 @@ import { Plus, Search, RefreshCw, ChevronLeft, Trash2 } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import FamilyFormModal from '@/components/admin/FamilyFormModal'
 
+type SortKey = 'family_number' | 'first_name' | 'family_name' | 'phone' | 'membership_type' | 'end_date' | 'status'
+type SortDirection = 'asc' | 'desc'
+
+const collator = new Intl.Collator('he', { numeric: true, sensitivity: 'base' })
+
+const sortableHeaders: { label: string; sortKey?: SortKey }[] = [
+  { label: 'מס׳', sortKey: 'family_number' },
+  { label: 'שם פרטי', sortKey: 'first_name' },
+  { label: 'שם משפחה', sortKey: 'family_name' },
+  { label: 'טלפון', sortKey: 'phone' },
+  { label: 'סוג מנוי', sortKey: 'membership_type' },
+  { label: 'תוקף', sortKey: 'end_date' },
+  { label: 'סטטוס', sortKey: 'status' },
+  { label: '' },
+]
+
+function sortValue(family: Family, key: SortKey): string {
+  const value = family[key]
+  return value == null ? '' : String(value)
+}
 export default function AdminFamilies() {
   const navigate = useNavigate()
   const [families, setFamilies] = useState<Family[]>([])
@@ -16,6 +36,8 @@ export default function AdminFamilies() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('family_name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   async function deleteFamily(e: React.MouseEvent, id: string, name: string) {
     e.stopPropagation()
@@ -29,18 +51,32 @@ export default function AdminFamilies() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    let list = families
+    let list = [...families]
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(f =>
         f.family_name.toLowerCase().includes(q) ||
+        (f.first_name ?? '').toLowerCase().includes(q) ||
         (f.family_number ?? '').toLowerCase().includes(q) ||
         (f.phone ?? '').includes(q)
       )
     }
     if (statusFilter !== 'all') list = list.filter(f => f.status === statusFilter)
+    list.sort((a, b) => {
+      const result = collator.compare(sortValue(a, sortKey), sortValue(b, sortKey))
+      return sortDirection === 'asc' ? result : -result
+    })
     setFiltered(list)
-  }, [families, search, statusFilter])
+  }, [families, search, statusFilter, sortKey, sortDirection])
+
+  function toggleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(nextKey)
+      setSortDirection('asc')
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -107,14 +143,34 @@ export default function AdminFamilies() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-                {['מס׳', 'שם פרטי', 'שם משפחה', 'טלפון', 'סוג מנוי', 'תוקף', 'סטטוס', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
+                {sortableHeaders.map(h => {
+                  const isActive = sortKey === h.sortKey
+                  return (
+                    <th
+                      key={h.label || 'actions'}
+                      onClick={h.sortKey ? () => toggleSort(h.sortKey!) : undefined}
+                      title={h.sortKey ? 'לחצי למיון' : undefined}
+                      style={{
+                        padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: isActive ? '#1d4ed8' : '#374151',
+                        whiteSpace: 'nowrap', cursor: h.sortKey ? 'pointer' : 'default', userSelect: 'none',
+                      }}
+                    >
+                      {h.sortKey ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span>{h.label}</span>
+                          <span style={{ color: isActive ? '#1d4ed8' : '#9ca3af', fontSize: 12, minWidth: 12 }}>
+                            {isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                          </span>
+                        </span>
+                      ) : h.label}
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>לא נמצאו משפחות</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>לא נמצאו משפחות</td></tr>
               ) : filtered.map(f => {
                 const sc = statusColor(f.status)
                 return (

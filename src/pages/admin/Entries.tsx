@@ -6,8 +6,17 @@ import { RefreshCw, XCircle, Search } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import toast from 'react-hot-toast'
 
+type EntryWithFamily = Entry & {
+  family: { first_name: string | null; family_name: string; family_number: string | null } | null
+}
+
+function entryFamilyName(entry: EntryWithFamily): string {
+  const liveName = [entry.family?.first_name, entry.family?.family_name].filter(Boolean).join(' ').trim()
+  return liveName || entry.family_name_snapshot || 'משפחה שנמחקה'
+}
+
 export default function AdminEntries() {
-  const [entries, setEntries] = useState<(Entry & { family: { family_name: string; family_number: string } | null })[]>([])
+  const [entries, setEntries] = useState<EntryWithFamily[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10))
   const [search, setSearch] = useState('')
@@ -18,7 +27,7 @@ export default function AdminEntries() {
     setLoading(true)
     const { data } = await supabase
       .from('entries')
-      .select('*, family:families(family_name, family_number)')
+      .select('*, family:families(first_name, family_name, family_number)')
       .eq('entry_date', dateFilter)
       .order('created_at', { ascending: false })
     setEntries((data ?? []) as any)
@@ -33,7 +42,10 @@ export default function AdminEntries() {
   }
 
   const filtered = search
-    ? entries.filter(e => e.family?.family_name.toLowerCase().includes(search.toLowerCase()) || e.family?.family_number.includes(search))
+    ? entries.filter(e => {
+        const q = search.toLowerCase()
+        return entryFamilyName(e).toLowerCase().includes(q) || (e.family?.family_number ?? '').includes(search)
+      })
     : entries
 
   const totalPeople = filtered.filter(e => e.status === 'valid').reduce((s, e) => s + e.people_count, 0)
@@ -82,8 +94,8 @@ export default function AdminEntries() {
                   <tr key={e.id} style={{ borderBottom: '1px solid #f9fafb' }}>
                     <td style={{ padding: '12px 16px', color: '#374151' }}>{formatTime(e.entry_time)}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 600 }}>{e.family?.family_name ?? '—'}</div>
-                      <div style={{ fontSize: 12, color: '#9ca3af' }}>{e.family?.family_number}</div>
+                      <div style={{ fontWeight: 600 }}>{entryFamilyName(e)}</div>
+                      <div style={{ fontSize: 12, color: '#9ca3af' }}>{e.family?.family_number ?? '—'}</div>
                     </td>
                     <td style={{ padding: '12px 16px', fontWeight: 700, fontSize: 16, color: '#1d4ed8' }}>{e.people_count}</td>
                     <td style={{ padding: '12px 16px' }}>{entryTypeLabel(e.entry_type)}</td>
