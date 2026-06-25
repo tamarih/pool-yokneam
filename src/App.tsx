@@ -13,6 +13,7 @@ import AdminImport from '@/pages/admin/Import'
 import AdminShifts from '@/pages/admin/Shifts'
 import GuardScanner from '@/pages/guard/Scanner'
 import GuardEntries from '@/pages/guard/Entries'
+import GuardWeeklyShifts from '@/pages/guard/WeeklyShifts'
 import MemberCard from '@/pages/member/Card'
 import EntryPage from '@/pages/entry/EntryPage'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -64,6 +65,7 @@ export default function App() {
       }>
         <Route index element={<GuardScanner />} />
         <Route path="entries" element={<GuardEntries />} />
+        <Route path="shifts" element={<GuardWeeklyShifts />} />
       </Route>
 
       {/* Member routes */}
