@@ -252,7 +252,7 @@ function ShiftCell({ date, type, defaults, existing, employees, onSave }: {
   const [saving, setSaving] = useState(false)
 
   // sync when existing changes (e.g. after save or week change)
-  const existingKey = existing?.id + existing?.employee_id + existing?.start_time
+  const existingKey = (existing?.id ?? '') + (existing?.employee_id ?? '') + (existing?.start_time ?? '')
   useEffect(() => {
     setStart(existing?.start_time?.slice(0, 5) ?? defaults[0])
     setEnd(existing?.end_time?.slice(0, 5) ?? defaults[1])

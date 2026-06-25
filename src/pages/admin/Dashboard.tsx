@@ -12,6 +12,7 @@ type EntryRange = 'inside' | 'today' | 'week' | 'month'
 interface ShiftWithEmployee {
   id: string; date: string; shift_type: 'morning' | 'evening'
   start_time: string; end_time: string; notes: string | null
+  employee_id: string | null
   employees: { name: string } | null
 }
 
@@ -43,7 +44,7 @@ function useShifts() {
       const nxt = todayShifts.find(s => s.start_time.slice(0, 5) > nowTime) ?? null
       setCurrent(cur)
       setNext(nxt)
-      setMissingCount(data.filter(s => !s.employee_id).length)
+      setMissingCount(data.filter((s: any) => !s.employee_id).length)
     }
     load()
   }, [])
