@@ -10,6 +10,7 @@ import AdminFamilyDetail from '@/pages/admin/FamilyDetail'
 import AdminEntries from '@/pages/admin/Entries'
 import AdminReports from '@/pages/admin/Reports'
 import AdminImport from '@/pages/admin/Import'
+import AdminShifts from '@/pages/admin/Shifts'
 import GuardScanner from '@/pages/guard/Scanner'
 import GuardEntries from '@/pages/guard/Entries'
 import MemberCard from '@/pages/member/Card'
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="families" element={<AdminFamilies />} />
         <Route path="families/:id" element={<AdminFamilyDetail />} />
         <Route path="entries" element={<AdminEntries />} />
+        <Route path="shifts" element={<AdminShifts />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="import" element={<AdminImport />} />
       </Route>

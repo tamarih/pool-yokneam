@@ -9,6 +9,48 @@ import { formatTime } from '@/utils/format'
 
 type EntryRange = 'inside' | 'today' | 'week' | 'month'
 
+interface ShiftWithEmployee {
+  id: string; date: string; shift_type: 'morning' | 'evening'
+  start_time: string; end_time: string; notes: string | null
+  employees: { name: string } | null
+}
+
+function getILTime() {
+  return new Date().toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function useShifts() {
+  const [current, setCurrent] = useState<ShiftWithEmployee | null | undefined>(undefined)
+  const [next, setNext] = useState<ShiftWithEmployee | null>(null)
+  const [missingCount, setMissingCount] = useState(0)
+
+  useEffect(() => {
+    async function load() {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' })
+      const weekEnd = new Date(new Date(today).getTime() + 7 * 86400000).toISOString().slice(0, 10)
+
+      const { data } = await supabase
+        .from('shifts')
+        .select('*, employees(name)')
+        .gte('date', today)
+        .lte('date', weekEnd)
+        .order('date').order('start_time')
+
+      if (!data) return
+      const nowTime = getILTime()
+      const todayShifts = data.filter(s => s.date === today) as ShiftWithEmployee[]
+      const cur = todayShifts.find(s => s.start_time.slice(0, 5) <= nowTime && nowTime < s.end_time.slice(0, 5)) ?? null
+      const nxt = todayShifts.find(s => s.start_time.slice(0, 5) > nowTime) ?? null
+      setCurrent(cur)
+      setNext(nxt)
+      setMissingCount(data.filter(s => !s.employee_id).length)
+    }
+    load()
+  }, [])
+
+  return { current, next, missingCount }
+}
+
 interface EntryRow {
   id: string
   people_count: number
@@ -258,6 +300,7 @@ function cleanRow(r: Record<string, string>, drop: string[] = []): any {
 }
 
 export default function AdminDashboard() {
+  const { current: currentShift, next: nextShift, missingCount } = useShifts()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalRange, setModalRange] = useState<EntryRange | null>(null)
@@ -372,6 +415,42 @@ export default function AdminDashboard() {
           {exporting ? 'מייצא...' : 'גיבוי CSV של כל הנתונים'}
         </button>
       </div>
+
+      {/* Shift alert */}
+      {missingCount > 0 && (
+        <div style={{ marginBottom: 20, background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 18 }}>🔴</span>
+          <span style={{ fontWeight: 600, color: '#dc2626', fontSize: 14 }}>חסרות {missingCount} משמרות ללא עובד משובץ בשבוע הקרוב</span>
+          <a href="/admin/shifts" style={{ marginRight: 'auto', fontSize: 13, color: '#dc2626', textDecoration: 'underline' }}>לניהול משמרות</a>
+        </div>
+      )}
+
+      {/* Current shift card */}
+      {currentShift !== undefined && (
+        <div style={{ marginBottom: 20, background: 'white', borderRadius: 14, border: '1.5px solid #e5e7eb', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 4 }}>המשמרת הנוכחית</div>
+            {currentShift ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>{currentShift.employees?.name ?? '—'}</span>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>{currentShift.start_time.slice(0, 5)}–{currentShift.end_time.slice(0, 5)}</span>
+                {!currentShift.employee_id && <span style={{ color: '#dc2626', fontWeight: 600, fontSize: 13 }}>לא משובץ עובד</span>}
+              </div>
+            ) : (
+              <span style={{ color: '#dc2626', fontWeight: 600, fontSize: 14 }}>לא משובץ עובד למשמרת הנוכחית</span>
+            )}
+          </div>
+          {nextShift && (
+            <div style={{ borderRight: '1px solid #f3f4f6', paddingRight: 16 }}>
+              <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 4 }}>המשמרת הבאה</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#374151' }}>{nextShift.employees?.name ?? <span style={{ color: '#dc2626' }}>לא משובץ</span>}</span>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>{nextShift.start_time.slice(0, 5)}–{nextShift.end_time.slice(0, 5)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{
         display: 'grid',

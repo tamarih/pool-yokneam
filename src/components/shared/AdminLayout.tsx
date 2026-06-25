@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  LayoutDashboard, Users, DoorOpen, BarChart3, LogOut, Menu, X, Upload
+  LayoutDashboard, Users, DoorOpen, BarChart3, LogOut, Menu, X, Upload, CalendarClock
 } from 'lucide-react'
 
 const navItems = [
   { to: '/admin', label: 'דשבורד', icon: LayoutDashboard, end: true },
   { to: '/admin/families', label: 'משפחות', icon: Users },
   { to: '/admin/entries', label: 'כניסות', icon: DoorOpen },
+  { to: '/admin/shifts', label: 'משמרות', icon: CalendarClock },
   { to: '/admin/reports', label: 'דוחות', icon: BarChart3 },
   { to: '/admin/import', label: 'ייבוא', icon: Upload },
 ]
