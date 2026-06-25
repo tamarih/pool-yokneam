@@ -12,13 +12,13 @@ interface Shift {
 
 // Default [start, end] per weekday (0=Sun) per shift type
 const DEFAULTS: Record<number, { morning?: [string, string]; evening?: [string, string] }> = {
-  0: { morning: ['07:30', '14:00'], evening: ['16:00', '20:00'] },
-  1: { morning: ['07:00', '13:00'], evening: ['13:00', '18:00'] },
-  2: { morning: ['07:00', '14:00'], evening: ['14:00', '22:00'] },
-  3: { morning: ['07:00', '13:30'], evening: ['13:30', '20:00'] },
-  4: { morning: ['07:30', '09:30'], evening: ['16:00', '18:00'] },
-  5: { morning: ['07:30', '09:30'], evening: ['16:00', '20:00'] },
-  6: { evening: ['15:00', '20:00'] },
+  0: { evening: ['15:00', '20:00'] },                                    // א׳ — אין בוקר
+  1: { morning: ['07:30', '09:30'], evening: ['16:00', '20:00'] },       // ב׳
+  2: { morning: ['07:30', '09:30'], evening: ['16:00', '18:00'] },       // ג׳
+  3: { morning: ['07:00', '13:30'], evening: ['13:30', '20:00'] },       // ד׳
+  4: { morning: ['07:00', '14:00'], evening: ['14:00', '22:00'] },       // ה׳
+  5: { morning: ['07:00', '13:00'], evening: ['13:00', '18:00'] },       // ו׳
+  6: { morning: ['07:30', '14:00'], evening: ['16:00', '20:00'] },       // ש׳
 }
 
 const DAY_HEB = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
