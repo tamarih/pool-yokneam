@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 
@@ -47,6 +47,8 @@ export default function AdminShifts() {
   const [loading, setLoading] = useState(true)
   const [newEmpName, setNewEmpName] = useState('')
   const [addingEmp, setAddingEmp] = useState(false)
+  const [editingEmpId, setEditingEmpId] = useState<string | null>(null)
+  const [editingEmpName, setEditingEmpName] = useState('')
 
   const weekEnd = addDays(weekStart, 6)
 
@@ -97,6 +99,16 @@ export default function AdminShifts() {
     toast.success('עובד נוסף')
     const { data } = await supabase.from('employees').select('*').eq('active', true).order('name')
     setEmployees(data ?? [])
+  }
+
+  async function renameEmployee(id: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const { error } = await supabase.from('employees').update({ name: trimmed }).eq('id', id)
+    if (error) { toast.error('שגיאה בעדכון'); return }
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, name: trimmed } : e))
+    setEditingEmpId(null)
+    toast.success('השם עודכן')
   }
 
   async function deactivateEmployee(id: string) {
@@ -218,17 +230,40 @@ export default function AdminShifts() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {employees.map(e => (
             <div key={e.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
+              display: 'flex', alignItems: 'center', gap: 6,
               background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-              padding: '8px 12px', fontSize: 14, fontWeight: 500,
+              padding: '6px 10px', fontSize: 14, fontWeight: 500,
             }}>
-              {e.name}
-              <button onClick={() => deactivateEmployee(e.id)} title="הסר" style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af',
-                display: 'flex', alignItems: 'center', padding: 0,
-              }}>
-                <Trash2 size={13} />
-              </button>
+              {editingEmpId === e.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editingEmpName}
+                    onChange={ev => setEditingEmpName(ev.target.value)}
+                    onKeyDown={ev => {
+                      if (ev.key === 'Enter') renameEmployee(e.id, editingEmpName)
+                      if (ev.key === 'Escape') setEditingEmpId(null)
+                    }}
+                    style={{ width: 110, padding: '3px 7px', border: '1.5px solid #1d4ed8', borderRadius: 6, fontSize: 14, outline: 'none' }}
+                  />
+                  <button onClick={() => renameEmployee(e.id, editingEmpName)} title="שמור" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', display: 'flex', padding: 0 }}>
+                    <Check size={15} />
+                  </button>
+                  <button onClick={() => setEditingEmpId(null)} title="ביטול" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', padding: 0 }}>
+                    <X size={15} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {e.name}
+                  <button onClick={() => { setEditingEmpId(e.id); setEditingEmpName(e.name) }} title="ערוך שם" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => deactivateEmployee(e.id)} title="הסר" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>
