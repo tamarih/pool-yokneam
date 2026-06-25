@@ -42,7 +42,13 @@ function ShiftBanner() {
       if (!data) { setCurrent(null); return }
 
       const nowMin = nowIL().getHours() * 60 + nowIL().getMinutes()
-      const todayShifts = (data as Shift[]).filter(s => s.date === today)
+      // Supabase returns employees as array; normalize to single object
+      const shifts = (data as unknown[]).map((s: any) => ({
+        ...s,
+        employees: Array.isArray(s.employees) ? (s.employees[0] ?? null) : s.employees,
+      })) as Shift[]
+
+      const todayShifts = shifts.filter(s => s.date === today)
       const cur = todayShifts.find(s =>
         nowMin >= timeToMinutes(s.start_time) && nowMin < timeToMinutes(s.end_time)
       ) ?? null
@@ -50,7 +56,7 @@ function ShiftBanner() {
 
       // next = first future shift today, or first shift tomorrow
       const nxt = todayShifts.find(s => timeToMinutes(s.start_time) > nowMin)
-        ?? (data as Shift[]).find(s => s.date === tomorrowStr)
+        ?? shifts.find(s => s.date === tomorrowStr)
         ?? null
       setNext(nxt)
     }
