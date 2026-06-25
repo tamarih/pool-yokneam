@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { QrCode, List, LogOut, CalendarClock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -116,7 +116,7 @@ export default function GuardLayout() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo2.png" alt="יקנעם" style={{ height: 48, width: 48, objectFit: 'contain', borderRadius: 10 }} />
+            <Link to="/guard" style={{ display: 'flex' }}><img src="/logo2.png" alt="יקנעם" style={{ height: 48, width: 48, objectFit: 'contain', borderRadius: 10 }} /></Link>
             <div>
               <div style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>בריכת יקנעם</div>
               <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>שומר: {profile?.full_name}</div>
