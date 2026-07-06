@@ -198,16 +198,22 @@ export default function AdminFamilyDetail() {
               <UserPlus size={15} /> הוסף
             </button>
           </div>
-          {members.length === 0 ? <Empty /> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {members.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f9fafb' }}>
-                  <span style={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</span>
-                  <span style={{ color: '#6b7280', fontSize: 13 }}>{m.birth_date ? formatDate(m.birth_date) : ''}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Head of family from families table */}
+            {family.first_name && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f9fafb' }}>
+                <span style={{ fontWeight: 600 }}>{family.first_name} {family.family_name}</span>
+                <span style={{ fontSize: 12, color: '#1d4ed8', background: '#dbeafe', padding: '2px 8px', borderRadius: 10 }}>ראש משפחה</span>
+              </div>
+            )}
+            {members.map(m => (
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f9fafb' }}>
+                <span style={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</span>
+                <span style={{ color: '#6b7280', fontSize: 13 }}>{m.birth_date ? formatDate(m.birth_date) : ''}</span>
+              </div>
+            ))}
+            {!family.first_name && members.length === 0 && <Empty />}
+          </div>
         </div>
       )}
 
