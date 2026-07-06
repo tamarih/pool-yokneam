@@ -64,6 +64,30 @@ export default function AdminFamilyDetail() {
     else { toast.success('כרטיסייה נוספה'); setAddPunchEntries(0); setAddPunchExpiry(''); setAddPunchPhone(''); load() }
   }
 
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [newMemberFirst, setNewMemberFirst] = useState('')
+  const [newMemberLast, setNewMemberLast] = useState('')
+  const [newMemberBirth, setNewMemberBirth] = useState('')
+  const [savingMember, setSavingMember] = useState(false)
+
+  async function addMember() {
+    const first = newMemberFirst.trim()
+    if (!first) return toast.error('חובה להזין שם פרטי')
+    setSavingMember(true)
+    const { error } = await supabase.from('family_members').insert({
+      family_id: id,
+      first_name: first,
+      last_name: newMemberLast.trim() || family!.family_name,
+      birth_date: newMemberBirth || null,
+    })
+    setSavingMember(false)
+    if (error) { toast.error('שגיאה: ' + error.message); return }
+    toast.success('חבר נוסף')
+    setShowAddMember(false)
+    setNewMemberFirst(''); setNewMemberLast(''); setNewMemberBirth('')
+    load()
+  }
+
   const [retroFor, setRetroFor] = useState<string | null>(null) // punch_card id
   const [retroDate, setRetroDate] = useState(new Date().toISOString().slice(0, 10))
   const [retroTime, setRetroTime] = useState('12:00')
@@ -194,7 +218,7 @@ export default function AdminFamilyDetail() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ fontWeight: 700 }}>חברי משפחה</h3>
-            <button onClick={() => { /* TODO: add member modal */ }} style={btnStyle('#16a34a', '#dcfce7')}>
+            <button onClick={() => setShowAddMember(true)} style={btnStyle('#16a34a', '#dcfce7')}>
               <UserPlus size={15} /> הוסף
             </button>
           </div>
@@ -413,6 +437,43 @@ export default function AdminFamilyDetail() {
         <FamilyFormModal family={family} onClose={() => { setShowEditFamily(false); load() }} />
       )}
       {showQR && <FamilyQRCard family={family} onClose={() => setShowQR(false)} />}
+
+      {showAddMember && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl' }}>
+          <div style={{ background: 'white', borderRadius: 16, padding: 28, width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>הוסף חבר משפחה</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>שם פרטי *</label>
+                <input autoFocus value={newMemberFirst} onChange={e => setNewMemberFirst(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addMember()}
+                  placeholder="שם פרטי"
+                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>שם משפחה (ריק = {family.family_name})</label>
+                <input value={newMemberLast} onChange={e => setNewMemberLast(e.target.value)}
+                  placeholder={family.family_name}
+                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>תאריך לידה (אופציונלי)</label>
+                <input type="date" value={newMemberBirth} onChange={e => setNewMemberBirth(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button onClick={addMember} disabled={savingMember} style={{ flex: 1, padding: '12px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                {savingMember ? 'שומר...' : 'הוסף'}
+              </button>
+              <button onClick={() => { setShowAddMember(false); setNewMemberFirst(''); setNewMemberLast(''); setNewMemberBirth('') }}
+                style={{ flex: 1, padding: '12px', background: '#f3f4f6', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#374151' }}>
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
