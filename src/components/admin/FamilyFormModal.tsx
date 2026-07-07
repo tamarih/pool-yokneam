@@ -73,6 +73,10 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     if (isEdit) {
       const res = await supabase.from('families').update(payload).eq('id', family!.id)
       error = res.error
+      // If switched to punch_card, deactivate any active memberships
+      if (!error && form.membership_type === 'punch_card' && family!.membership_type !== 'punch_card') {
+        await supabase.from('memberships').update({ active: false }).eq('family_id', family!.id).eq('active', true)
+      }
     } else {
       const familyNumber = await supabase.rpc('next_family_number')
       const { data: newFamily, error: insertError } = await supabase
