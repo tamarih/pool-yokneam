@@ -28,7 +28,7 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     address: family?.address ?? '',
     membership_type: family?.membership_type ?? 'seasonal',
     membership_label: '',
-    membership_key: 'individual',
+    membership_key: family?.membership_type === 'punch_card' ? 'punch_card' : 'individual',
     start_date: family?.start_date ?? new Date().toISOString().slice(0, 10),
     end_date: family?.end_date ?? '2026-10-31',
     status: family?.status ?? 'active',
@@ -150,7 +150,7 @@ export default function FamilyFormModal({ onClose, family }: Props) {
           <Field label="טלפון" value={form.phone} onChange={v => set('phone', v)} type="tel" />
           <Field label="כתובת" value={form.address} onChange={v => set('address', v)} />
 
-          {!isEdit && <div>
+          <div>
             <label style={labelStyle}>סוג מנוי *</label>
             <select
               value={form.membership_key}
@@ -202,9 +202,9 @@ export default function FamilyFormModal({ onClose, family }: Props) {
               <option value="punch_card_11">כרטיסייה 11 כניסות - 500 ₪</option>
               <option value="punch_card">כרטיסייה (אחר)</option>
             </select>
-          </div>}
+          </div>
 
-          {!isEdit && form.membership_type === 'punch_card' && (
+          {form.membership_type === 'punch_card' && !isEdit && (
             <Field label="מספר כניסות" value={form.punch_entries} onChange={v => set('punch_entries', v)} type="number" />
           )}
 
