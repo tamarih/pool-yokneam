@@ -153,6 +153,12 @@ export default function AdminFamilyDetail() {
     else { toast.success('מנוי נוצר'); load() }
   }
 
+  async function deactivateMembership(membershipId: string) {
+    if (!confirm('להפוך מנוי זה ללא פעיל?')) return
+    const { error } = await supabase.from('memberships').update({ active: false }).eq('id', membershipId)
+    if (error) toast.error('שגיאה'); else { toast.success('המנוי הופך ללא פעיל'); load() }
+  }
+
   async function updateMembershipPhones(membershipId: string, phones: string[]) {
     const { error } = await supabase.from('memberships').update({ phones }).eq('id', membershipId)
     if (error) toast.error('שגיאה בעדכון')
@@ -316,9 +322,17 @@ export default function AdminFamilyDetail() {
                   familyPhone={family.phone}
                   onSave={(arr) => updateMembershipPhones(m.id, arr)}
                 />
-                <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                  {m.active ? 'פעיל' : 'לא פעיל'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ ...sc2, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                    {m.active ? 'פעיל' : 'לא פעיל'}
+                  </span>
+                  {m.active && (
+                    <button onClick={() => deactivateMembership(m.id)} style={{
+                      background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                      padding: '4px 10px', cursor: 'pointer', color: '#dc2626', fontSize: 12, fontWeight: 600,
+                    }}>השבת</button>
+                  )}
+                </div>
               </div>
             )
           })}
