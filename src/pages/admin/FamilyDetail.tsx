@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Family, FamilyMember, Membership, PunchCard, Entry } from '@/types'
 import { formatDate, formatTime, membershipTypeLabel, statusLabel, statusColor, entryTypeLabel } from '@/utils/format'
-import { ArrowRight, Edit2, UserPlus, Plus, RefreshCw, XCircle, QrCode, Trash2 } from 'lucide-react'
+import { ArrowRight, Edit2, UserPlus, Plus, RefreshCw, XCircle, QrCode, Trash2, Pencil, Check, X } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import FamilyFormModal from '@/components/admin/FamilyFormModal'
 import FamilyQRCard from '@/components/shared/FamilyQRCard'
@@ -69,6 +69,31 @@ export default function AdminFamilyDetail() {
   const [newMemberLast, setNewMemberLast] = useState('')
   const [newMemberBirth, setNewMemberBirth] = useState('')
   const [savingMember, setSavingMember] = useState(false)
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
+  const [editFirst, setEditFirst] = useState('')
+  const [editLast, setEditLast] = useState('')
+  const [editBirth, setEditBirth] = useState('')
+
+  async function saveEditMember() {
+    if (!editingMember) return
+    const { error } = await supabase.from('family_members').update({
+      first_name: editFirst.trim(),
+      last_name: editLast.trim(),
+      birth_date: editBirth || null,
+    }).eq('id', editingMember.id)
+    if (error) { toast.error('שגיאה בעדכון'); return }
+    toast.success('עודכן')
+    setEditingMember(null)
+    load()
+  }
+
+  async function deleteMember(m: FamilyMember) {
+    if (!confirm(`למחוק את ${m.first_name} ${m.last_name}?`)) return
+    const { error } = await supabase.from('family_members').delete().eq('id', m.id)
+    if (error) { toast.error('שגיאה במחיקה'); return }
+    toast.success('נמחק')
+    load()
+  }
 
   async function addMember() {
     const first = newMemberFirst.trim()
@@ -231,9 +256,36 @@ export default function AdminFamilyDetail() {
               </div>
             )}
             {members.map(m => (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f9fafb' }}>
-                <span style={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</span>
-                <span style={{ color: '#6b7280', fontSize: 13 }}>{m.birth_date ? formatDate(m.birth_date) : ''}</span>
+              <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f9fafb' }}>
+                {editingMember?.id === m.id ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                    <input value={editFirst} onChange={e => setEditFirst(e.target.value)}
+                      placeholder="שם פרטי"
+                      style={{ flex: '1 1 100px', padding: '6px 10px', border: '1.5px solid #1d4ed8', borderRadius: 7, fontSize: 14, outline: 'none' }} />
+                    <input value={editLast} onChange={e => setEditLast(e.target.value)}
+                      placeholder="שם משפחה"
+                      style={{ flex: '1 1 100px', padding: '6px 10px', border: '1.5px solid #1d4ed8', borderRadius: 7, fontSize: 14, outline: 'none' }} />
+                    <input type="date" value={editBirth} onChange={e => setEditBirth(e.target.value)}
+                      style={{ padding: '6px 10px', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: 14, outline: 'none' }} />
+                    <button onClick={saveEditMember} title="שמור" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', display: 'flex' }}><Check size={18} /></button>
+                    <button onClick={() => setEditingMember(null)} title="ביטול" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }}><X size={18} /></button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ color: '#6b7280', fontSize: 13 }}>{m.birth_date ? formatDate(m.birth_date) : ''}</span>
+                      <button onClick={() => { setEditingMember(m); setEditFirst(m.first_name); setEditLast(m.last_name); setEditBirth(m.birth_date ?? '') }}
+                        title="ערוך" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => deleteMember(m)}
+                        title="מחק" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {!family.first_name && members.length === 0 && <Empty />}
