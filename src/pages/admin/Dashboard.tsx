@@ -234,6 +234,78 @@ function EntriesModal({ range, onClose }: { range: EntryRange; onClose: () => vo
 }
 
 
+interface PunchCardRow {
+  id: string
+  remaining_entries: number
+  purchased_entries: number
+  expiry_date: string | null
+  family: { id: string; family_name: string; first_name: string | null; phone: string | null } | null
+}
+
+function PunchCardsModal({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<PunchCardRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('punch_cards')
+      .select('id, remaining_entries, purchased_entries, expiry_date, family:families(id, family_name, first_name, phone)')
+      .eq('status', 'active')
+      .gt('remaining_entries', 0)
+      .order('remaining_entries', { ascending: true })
+      .then(({ data }) => { setRows((data ?? []) as any); setLoading(false) })
+  }, [])
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20, direction: 'rtl' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0 }}>כרטיסיות פעילות</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0 0' }}>{rows.length} כרטיסיות</p>
+          </div>
+          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 10, width: 36, height: 36, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={18} color="#6b7280" />
+          </button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center' }}><LoadingSpinner /></div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>אין כרטיסיות פעילות</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#f9fafb' }}>
+                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  {['משפחה', 'טלפון', 'נותרו', 'נרכשו', 'תוקף'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: '#374151', fontSize: 13 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => {
+                  const name = [r.family?.first_name, r.family?.family_name].filter(Boolean).join(' ') || '—'
+                  const rem = r.remaining_entries
+                  const remColor = rem <= 2 ? '#dc2626' : rem <= 5 ? '#d97706' : '#15803d'
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                      <td style={{ padding: '10px 16px', fontWeight: 600 }}>{name}</td>
+                      <td style={{ padding: '10px 16px', color: '#6b7280', direction: 'ltr' }}>{r.family?.phone ?? '—'}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 800, color: remColor }}>{rem}</td>
+                      <td style={{ padding: '10px 16px', color: '#6b7280' }}>{r.purchased_entries}</td>
+                      <td style={{ padding: '10px 16px', color: '#6b7280', fontSize: 13 }}>{r.expiry_date ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 async function fetchAllRows(table: BackupTable): Promise<any[]> {
   const pageSize = 1000
   const rows: any[] = []
@@ -305,6 +377,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalRange, setModalRange] = useState<EntryRange | null>(null)
+  const [showPunchCards, setShowPunchCards] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   async function restoreFromCSV(file: File, table: BackupTable) {
@@ -384,10 +457,10 @@ export default function AdminDashboard() {
 
   if (loading) return <LoadingSpinner />
 
-  const cards: Array<{ icon: React.ElementType; label: string; value: number; color: string; bg: string; range?: EntryRange }> = [
+  const cards: Array<{ icon: React.ElementType; label: string; value: number; color: string; bg: string; range?: EntryRange; onClickOverride?: () => void }> = [
     { icon: Users, label: 'משפחות פעילות', value: stats?.active_families ?? 0, color: '#1d4ed8', bg: '#dbeafe' },
     { icon: CreditCard, label: 'מנויים פעילים', value: stats?.active_memberships ?? 0, color: '#0284c7', bg: '#e0f2fe' },
-    { icon: Ticket, label: 'כרטיסיות פעילות', value: stats?.active_punch_cards ?? 0, color: '#7c3aed', bg: '#ede9fe' },
+    { icon: Ticket, label: 'כרטיסיות פעילות', value: stats?.active_punch_cards ?? 0, color: '#7c3aed', bg: '#ede9fe', onClickOverride: () => setShowPunchCards(true) },
     { icon: DoorOpen, label: 'כניסות היום', value: stats?.entries_today ?? 0, color: '#16a34a', bg: '#dcfce7', range: 'today' },
     { icon: TrendingUp, label: 'כניסות השבוע', value: stats?.entries_week ?? 0, color: '#0369a1', bg: '#e0f2fe', range: 'week' },
     { icon: Calendar, label: 'כניסות החודש', value: stats?.entries_month ?? 0, color: '#9333ea', bg: '#f3e8ff', range: 'month' },
@@ -466,7 +539,7 @@ export default function AdminDashboard() {
             value={c.value}
             color={c.color}
             bg={c.bg}
-            onClick={c.range ? () => setModalRange(c.range!) : undefined}
+            onClick={c.onClickOverride ?? (c.range ? () => setModalRange(c.range!) : undefined)}
           />
         ))}
       </div>
@@ -492,6 +565,7 @@ export default function AdminDashboard() {
       <RestoreSection onRestore={restoreFromCSV} />
 
       {modalRange && <EntriesModal range={modalRange} onClose={() => setModalRange(null)} />}
+      {showPunchCards && <PunchCardsModal onClose={() => setShowPunchCards(false)} />}
     </div>
   )
 }
