@@ -50,6 +50,7 @@ export interface Membership {
   id: string
   family_id: string
   type: MembershipType
+  type_label: string | null
   start_date: string
   end_date: string | null
   active: boolean

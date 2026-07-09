@@ -313,7 +313,7 @@ export default function AdminFamilyDetail() {
             return (
               <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9fafb', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ fontWeight: 600 }}>{membershipTypeLabel(m.type)}</div>
+                  <div style={{ fontWeight: 600 }}>{m.type_label || membershipTypeLabel(m.type)}</div>
                   <div style={{ fontSize: 13, color: '#6b7280' }}>{formatDate(m.start_date)} — {m.end_date ? formatDate(m.end_date) : 'ללא הגבלה'}</div>
                 </div>
                 <PhonesEditor
