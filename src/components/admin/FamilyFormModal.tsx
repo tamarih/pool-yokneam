@@ -73,9 +73,29 @@ export default function FamilyFormModal({ onClose, family }: Props) {
     if (isEdit) {
       const res = await supabase.from('families').update(payload).eq('id', family!.id)
       error = res.error
-      // If switched to punch_card, deactivate any active memberships
-      if (!error && form.membership_type === 'punch_card' && family!.membership_type !== 'punch_card') {
-        await supabase.from('memberships').update({ active: false }).eq('family_id', family!.id).eq('active', true)
+      if (!error) {
+        if (form.membership_type === 'punch_card') {
+          if (family!.membership_type !== 'punch_card') {
+            await supabase.from('memberships').update({ active: false }).eq('family_id', family!.id).eq('active', true)
+          }
+        } else {
+          const labelToSave = form.membership_label || family!.membership_type
+          const { data: updated } = await supabase.from('memberships')
+            .update({ type_label: labelToSave, type: form.membership_type, start_date: form.start_date, end_date: form.end_date || null })
+            .eq('family_id', family!.id).eq('active', true)
+            .select()
+          // if no active membership exists, create one
+          if (!updated || (updated as unknown[]).length === 0) {
+            await supabase.from('memberships').insert({
+              family_id: family!.id,
+              type: form.membership_type,
+              type_label: labelToSave,
+              start_date: form.start_date,
+              end_date: form.end_date || null,
+              active: true,
+            })
+          }
+        }
       }
     } else {
       const familyNumber = await supabase.rpc('next_family_number')
@@ -161,27 +181,33 @@ export default function FamilyFormModal({ onClose, family }: Props) {
               onChange={e => {
                 const v = e.target.value
                 set('membership_key', v)
-                if (v === 'punch_card_11') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה 11 כניסות'); set('punch_entries', '11') }
-                else if (v === 'punch_card') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה') }
-                else if (v === 'individual') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד - 500 ₪') }
-                else if (v === 'individual_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 1 - 1000 ₪') }
-                else if (v === 'individual_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 2 - 1300 ₪') }
-                else if (v === 'individual_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 3 - 1500 ₪') }
-                else if (v === 'individual_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 4 - 1600 ₪') }
-                else if (v === 'couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי - 1000 ₪') }
-                else if (v === 'couple_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 1 - 1500 ₪') }
-                else if (v === 'couple_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 2 - 1800 ₪') }
-                else if (v === 'couple_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 3 - 2000 ₪') }
-                else if (v === 'couple_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 4 - 2100 ₪') }
-                else if (v === 'family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי משפחתי - 1000 ₪') }
-                else if (v === 'pensioner') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי פנסיונר') }
-                else if (v === 'grandparent_single') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים לכל השבוע - 1500 ₪') }
-                else if (v === 'grandparent_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים לכל השבוע - 2000 ₪') }
-                else if (v === 'grandparent_single_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים בלבד - 1200 ₪') }
-                else if (v === 'grandparent_couple_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים בלבד - 1700 ₪') }
-                else if (v === 'tzimer_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר זוגי - 800 ₪') }
-                else if (v === 'tzimer_family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר משפחתי - 1500 ₪') }
-                else if (v === 'annual') { set('membership_type', 'annual'); set('membership_label', 'מנוי שנתי') }
+                const seasonalEnd = '2026-10-31'
+                const annualEnd = (() => {
+                  const d = new Date(form.start_date || new Date())
+                  d.setFullYear(d.getFullYear() + 1)
+                  return d.toISOString().slice(0, 10)
+                })()
+                if (v === 'punch_card_11') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה 11 כניסות'); set('punch_entries', '11'); set('end_date', seasonalEnd) }
+                else if (v === 'punch_card') { set('membership_type', 'punch_card'); set('membership_label', 'כרטיסייה'); set('end_date', seasonalEnd) }
+                else if (v === 'individual') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד - 500 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'individual_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 1 - 1000 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'individual_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 2 - 1300 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'individual_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 3 - 1500 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'individual_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד אב/אם פלוס 4 - 1600 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי - 1000 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'couple_plus1') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 1 - 1500 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'couple_plus2') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 2 - 1800 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'couple_plus3') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 3 - 2000 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'couple_plus4') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי פלוס 4 - 2100 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי משפחתי - 1000 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'pensioner') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי פנסיונר'); set('end_date', seasonalEnd) }
+                else if (v === 'grandparent_single') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים לכל השבוע - 1500 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'grandparent_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים לכל השבוע - 2000 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'grandparent_single_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי יחיד סבא/סבתא + נכדים בלבד - 1200 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'grandparent_couple_only') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי זוגי סבא וסבתא + נכדים בלבד - 1700 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'tzimer_couple') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר זוגי - 800 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'tzimer_family') { set('membership_type', 'seasonal'); set('membership_label', 'מנוי בריכה לציימר משפחתי - 1500 ₪'); set('end_date', seasonalEnd) }
+                else if (v === 'annual') { set('membership_type', 'annual'); set('membership_label', 'מנוי שנתי'); set('end_date', annualEnd) }
               }}
               style={selectStyle} required>
               <option value="individual">מנוי יחיד - 500 ₪</option>
