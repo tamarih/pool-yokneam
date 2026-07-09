@@ -80,13 +80,15 @@ export default function FamilyFormModal({ onClose, family }: Props) {
           }
         } else {
           const labelToSave = form.membership_label || family!.membership_type
-          const { data: updated } = await supabase.from('memberships')
+          const { data: updated, error: memErr } = await supabase.from('memberships')
             .update({ type_label: labelToSave, type: form.membership_type, start_date: form.start_date, end_date: form.end_date || null })
             .eq('family_id', family!.id).eq('active', true)
             .select()
-          // if no active membership exists, create one
-          if (!updated || (updated as unknown[]).length === 0) {
-            await supabase.from('memberships').insert({
+          if (memErr) {
+            toast.error('שגיאה בעדכון מנוי: ' + memErr.message)
+          } else if (!updated || (updated as unknown[]).length === 0) {
+            // no active membership exists, create one
+            const { error: insErr } = await supabase.from('memberships').insert({
               family_id: family!.id,
               type: form.membership_type,
               type_label: labelToSave,
@@ -94,6 +96,7 @@ export default function FamilyFormModal({ onClose, family }: Props) {
               end_date: form.end_date || null,
               active: true,
             })
+            if (insErr) toast.error('שגיאה ביצירת מנוי: ' + insErr.message)
           }
         }
       }
