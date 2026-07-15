@@ -117,6 +117,22 @@ export default function AdminFamilyDetail() {
   const [retroDate, setRetroDate] = useState(new Date().toISOString().slice(0, 10))
   const [retroTime, setRetroTime] = useState('12:00')
   const [retroCount, setRetroCount] = useState(1)
+  const [returnFor, setReturnFor] = useState<string | null>(null) // punch_card id for returning entries
+  const [returnCount, setReturnCount] = useState(1)
+
+  async function returnEntries(pcId: string, usedEntries: number) {
+    if (returnCount < 1) return toast.error('מספר לא תקין')
+    if (returnCount > usedEntries) return toast.error(`שומשו רק ${usedEntries} ניקובים`)
+    const { error } = await supabase.from('punch_cards')
+      .update({ used_entries: usedEntries - returnCount })
+      .eq('id', pcId)
+    if (error) toast.error('שגיאה בהחזרת ניקובים: ' + error.message)
+    else {
+      toast.success(`הוחזרו ${returnCount} ניקובים`)
+      setReturnFor(null); setReturnCount(1)
+      load()
+    }
+  }
 
   async function addRetroactiveEntry(pcId: string, pcRemaining: number) {
     if (retroCount < 1) return toast.error('מספר אנשים לא תקין')
@@ -383,7 +399,40 @@ export default function AdminFamilyDetail() {
 
                 {/* Retroactive entry */}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f3f4f6' }}>
-                  {retroFor === pc.id ? (
+                  {returnFor === pc.id ? (
+                  <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 10, padding: 14, marginBottom: 8 }}>
+                    <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 14, marginBottom: 10 }}>
+                      ↩️ החזרת ניקובים
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>כמה ניקובים להחזיר?</label>
+                        <input type="number" min={1} max={pc.used_entries} value={returnCount}
+                          onChange={e => setReturnCount(+e.target.value)}
+                          style={{ width: 80, padding: '8px 10px', border: '1.5px solid #fca5a5', borderRadius: 8, fontSize: 14, outline: 'none' }} />
+                      </div>
+                      <button onClick={() => returnEntries(pc.id, pc.used_entries)}
+                        style={btnStyle('#dc2626', '#fef2f2')}>
+                        החזר
+                      </button>
+                      <button onClick={() => { setReturnFor(null); setReturnCount(1) }}
+                        style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13, color: '#6b7280' }}>
+                        ביטול
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>
+                      שומשו {pc.used_entries} ניקובים — אפשר להחזיר עד {pc.used_entries}
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setReturnFor(pc.id); setReturnCount(1); setRetroFor(null) }}
+                    disabled={pc.used_entries === 0}
+                    style={{ ...btnStyle('#dc2626', '#fef2f2'), marginBottom: 8, opacity: pc.used_entries === 0 ? 0.4 : 1 }}>
+                    ↩️ החזר ניקובים
+                  </button>
+                )}
+
+                {retroFor === pc.id ? (
                     <div style={{ background: '#fefce8', border: '1.5px solid #fde047', borderRadius: 10, padding: 14 }}>
                       <div style={{ fontWeight: 700, color: '#854d0e', fontSize: 14, marginBottom: 10 }}>
                         ➕ הוסף כניסה רטרואקטיבית
