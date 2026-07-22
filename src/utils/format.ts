@@ -25,7 +25,7 @@ export function formatTime(timeStr: string | null | undefined): string {
       : timeStr
     const d = new Date(iso)
     if (isNaN(d.getTime())) return timeStr.slice(0, 5)
-    return d.toLocaleTimeString(IL_LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: IL_TZ })
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: IL_TZ })
   } catch {
     return timeStr.slice(0, 5)
   }
