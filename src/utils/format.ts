@@ -17,15 +17,15 @@ const IL_TZ = 'Asia/Jerusalem'
 
 export function formatTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '—'
+  // Postgres returns "HH:MM:SS" — just take first 5 chars for "HH:MM"
+  if (/^\d{2}:\d{2}/.test(timeStr)) return timeStr.slice(0, 5)
+  // ISO datetime string — extract time part
   try {
-    // Postgres time-only field comes as "HH:MM:SS" — prefix today's date so DST is correct
-    const today = new Date().toISOString().slice(0, 10)
-    const iso = /^\d{2}:\d{2}/.test(timeStr) && !timeStr.includes('T')
-      ? `${today}T${timeStr}Z`
-      : timeStr
-    const d = new Date(iso)
+    const d = new Date(timeStr)
     if (isNaN(d.getTime())) return timeStr.slice(0, 5)
-    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: IL_TZ })
+    const h = d.getHours().toString().padStart(2, '0')
+    const m = d.getMinutes().toString().padStart(2, '0')
+    return `${h}:${m}`
   } catch {
     return timeStr.slice(0, 5)
   }
